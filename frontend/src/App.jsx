@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useGameStore } from './store/gameStore';
 import { useSocket } from './hooks/useSocket';
 import { Lobby } from './components/Lobby';
@@ -36,22 +36,14 @@ function App() {
     }
   }, [error]);
 
-  // Debug: Log de cambios de estado
-  useEffect(() => {
-    console.log('Estado del juego actualizado:', {
-      phase: currentPhase,
-      gameState,
-      privateState
-    });
-  }, [currentPhase, gameState, privateState]);
-
-  const handleShowRoleSelector = () => {
+  // 🔧 SOLUCIÓN: Handlers estables con useCallback
+  const handleShowRoleSelector = useCallback(() => {
     setShowRoleSelector(true);
-  };
+  }, []);
 
-  const handleBackToLobby = () => {
+  const handleBackToLobby = useCallback(() => {
     setShowRoleSelector(false);
-  };
+  }, []);
 
   const renderCurrentPhase = () => {
     // Si estamos mostrando el selector de roles manualmente

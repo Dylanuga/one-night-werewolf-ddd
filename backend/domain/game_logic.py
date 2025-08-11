@@ -26,7 +26,7 @@ class GameLogic:
         self.current_turn_index = 0
         self.night_turns: List[str] = []  # Lista ordenada de player_ids con turnos nocturnos
         self.game_logs: List[Dict[str, Any]] = []
-        self.max_players = 5
+        self.max_players = 8  # 🔧 Aumentado para más flexibilidad
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
         """Añade un jugador a la sala"""
@@ -72,9 +72,9 @@ class GameLogic:
         if len(roles) != required_roles:
             return False
         
-        # Validar que incluye exactamente 2 lobos (requisito de esta implementación)
+        # 🔧 FIX: Permitir cualquier número de lobos (mínimo 1 para que el juego tenga sentido)
         werewolf_count = roles.count('werewolf')
-        if werewolf_count != 2:
+        if werewolf_count < 1:
             return False
         
         self.selected_roles = roles.copy()
@@ -89,20 +89,38 @@ class GameLogic:
         if not self.selected_roles:
             return False
         
+        # 🔧 DEBUG: Añadido para verificar distribución
+        print(f"🔍 ROLES ORIGINALES: {self.selected_roles}")
+        
         # Mezclar roles y repartir
         shuffled_roles = self.selected_roles.copy()
         random.shuffle(shuffled_roles)
         
+        print(f"🔍 ROLES MEZCLADOS: {shuffled_roles}")
+        
         # Asignar roles a jugadores
         player_ids = list(self.players.keys())
+        print(f"🔍 JUGADORES ({len(player_ids)}): {[self.players[pid].name for pid in player_ids]}")
+        
+        werewolf_count_in_players = 0
         for i, player_id in enumerate(player_ids):
             role = shuffled_roles[i]
             self.players[player_id].assign_role(role)
+            if role == 'werewolf':
+                werewolf_count_in_players += 1
+            print(f"🔍 JUGADOR {i}: {self.players[player_id].name} -> {role}")
             self.add_log(f"Rol asignado: {self.players[player_id].name} -> {role}")
         
         # Asignar roles al centro
         self.center_cards = shuffled_roles[len(player_ids):]
+        werewolf_count_in_center = self.center_cards.count('werewolf')
+        
+        print(f"🔍 CENTRO: {self.center_cards}")
+        print(f"🔍 LOBOS EN JUGADORES: {werewolf_count_in_players}")
+        print(f"🔍 LOBOS EN CENTRO: {werewolf_count_in_center}")
+        
         self.add_log(f"Cartas del centro: {', '.join(self.center_cards)}")
+        self.add_log(f"🐺 Lobos entre jugadores: {werewolf_count_in_players}")
         
         # Preparar turnos nocturnos (ordenados por turn_order)
         self.night_turns = self._calculate_night_turns()

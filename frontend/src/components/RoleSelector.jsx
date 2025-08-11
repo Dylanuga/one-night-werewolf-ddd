@@ -21,7 +21,7 @@ export const RoleSelector = ({ onBack }) => {
   // Calcular total de roles seleccionados
   const totalSelected = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
 
-  // Garantizar que siempre hay 2 lobos (requisito de esta implementación)
+  // 🔧 FIX: Inicializar con 2 lobos pero permitir cambiar
   useEffect(() => {
     setSelectedRoles(prev => ({ ...prev, werewolf: 2 }));
   }, []);
@@ -31,10 +31,8 @@ export const RoleSelector = ({ onBack }) => {
       const currentCount = prev[roleType] || 0;
       const newCount = Math.max(0, currentCount + change);
       
-      // Los lobos deben ser exactamente 2 para esta implementación
-      if (roleType === 'werewolf' && newCount !== 2) {
-        return prev;
-      }
+      // 🔧 FIX TEMPORAL: Remover la restricción de exactamente 2 lobos
+      // Permitir cualquier número de lobos para testing
       
       return {
         ...prev,
@@ -44,12 +42,13 @@ export const RoleSelector = ({ onBack }) => {
   };
 
   const canStartGame = () => {
+    const werewolfCount = selectedRoles.werewolf || 0;
     return (
       isHost &&
       totalSelected === requiredRoles &&
-      selectedRoles.werewolf === 2 && // Exactamente 2 lobos
+      werewolfCount >= 1 && // 🔧 Mínimo 1 lobo en lugar de exactamente 2
       playerCount >= 3 &&
-      playerCount <= 5
+      playerCount <= 8
     );
   };
 
@@ -126,14 +125,23 @@ export const RoleSelector = ({ onBack }) => {
           </div>
         )}
 
+        {/* 🔧 MENSAJE DE TESTING */}
+        <div className="bg-yellow-900/50 border border-yellow-500 rounded-lg p-4 mb-6">
+          <h4 className="text-yellow-300 font-bold mb-2">🧪 MODO TESTING:</h4>
+          <p className="text-yellow-200 text-sm">
+            Puedes seleccionar cualquier número de lobos para hacer pruebas. 
+            Recomendado: 3-4 lobos para garantizar 2 lobos entre jugadores.
+          </p>
+        </div>
+
         {/* Instrucciones */}
         <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
           <h3 className="text-xl font-bold text-white mb-4">Selecciona los roles para la partida</h3>
           <p className="text-slate-400 mb-2">
             Debes seleccionar exactamente {requiredRoles} roles.
           </p>
-          <p className="text-yellow-400 text-sm">
-            ⚠️ Esta implementación requiere exactamente 2 lobos.
+          <p className="text-green-400 text-sm">
+            ✅ Para testing: Selecciona 3-4 lobos para garantizar que 2 vayan a jugadores.
           </p>
         </div>
 
@@ -158,8 +166,8 @@ export const RoleSelector = ({ onBack }) => {
                     <div>
                       <h4 className="font-bold text-white text-lg">{roleInfo.name}</h4>
                       {isWerewolf && (
-                        <span className="text-xs bg-red-600 px-2 py-1 rounded text-white">
-                          Requerido: 2
+                        <span className="text-xs bg-blue-600 px-2 py-1 rounded text-white">
+                          🧪 Testing: Selecciona 3-4
                         </span>
                       )}
                     </div>
@@ -168,7 +176,7 @@ export const RoleSelector = ({ onBack }) => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateRoleCount(roleType, -1)}
-                      disabled={count === 0 || (isWerewolf && count <= 2)}
+                      disabled={count === 0}
                       className="w-8 h-8 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded flex items-center justify-center transition-colors"
                     >
                       <Minus size={16} />
@@ -180,7 +188,7 @@ export const RoleSelector = ({ onBack }) => {
                     
                     <button
                       onClick={() => updateRoleCount(roleType, 1)}
-                      disabled={totalSelected >= requiredRoles || (isWerewolf && count >= 2)}
+                      disabled={totalSelected >= requiredRoles}
                       className="w-8 h-8 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded flex items-center justify-center transition-colors"
                     >
                       <Plus size={16} />
@@ -250,10 +258,10 @@ export const RoleSelector = ({ onBack }) => {
             </div>
           </div>
           
-          {!canStartGame() && totalSelected === requiredRoles && (
-            <div className="mt-4 p-3 bg-yellow-900/50 border border-yellow-500 rounded-lg">
-              <p className="text-yellow-200 text-sm">
-                ⚠️ Verifica que tengas exactamente 2 lobos para esta implementación.
+          {canStartGame() && (
+            <div className="mt-4 p-3 bg-green-900/50 border border-green-500 rounded-lg">
+              <p className="text-green-200 text-sm">
+                ✅ ¡Listo para iniciar! Con {selectedRoles.werewolf || 0} lobos seleccionados.
               </p>
             </div>
           )}

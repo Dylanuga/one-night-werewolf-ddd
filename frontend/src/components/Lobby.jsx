@@ -5,7 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { MAX_PLAYERS } from '../utils/constants';
 
-export const Lobby = () => {
+export const Lobby = ({ onNext }) => {
   const {
     gameState,
     playerName,
@@ -25,7 +25,33 @@ export const Lobby = () => {
   const isHost = hostPlayer && players.some(p => p.is_host);
   const canStartGame = isHost && playerCount >= 3 && playerCount <= MAX_PLAYERS;
 
+  // 🔍 DEBUG: Handler con logs detallados
+  const handleShowRoleSelector = (event) => {
+    console.log('🔍 LOBBY DEBUG - handleShowRoleSelector iniciado');
+    console.log('  - event:', event);
+    console.log('  - event.type:', event?.type);
+    console.log('  - isConnected ANTES:', isConnected);
+    console.log('  - gameState ANTES:', gameState);
+    console.log('  - Stack trace:', new Error().stack);
+
+    // Prevenir cualquier comportamiento por defecto
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    try {
+      console.log('  - Ejecutando onNext()...');
+      onNext();
+      console.log('  - onNext() ejecutado exitosamente');
+      console.log('  - isConnected DESPUÉS:', isConnected);
+    } catch (error) {
+      console.error('  - ERROR en onNext():', error);
+    }
+  };
+
   const handleCreateRoom = () => {
+    console.log('🔍 LOBBY DEBUG - handleCreateRoom');
     if (!playerName.trim()) {
       return;
     }
@@ -33,6 +59,7 @@ export const Lobby = () => {
   };
 
   const handleJoinRoom = () => {
+    console.log('🔍 LOBBY DEBUG - handleJoinRoom');
     if (!playerName.trim() || !inputRoomCode.trim()) {
       return;
     }
@@ -40,6 +67,7 @@ export const Lobby = () => {
   };
 
   const handleLeaveRoom = () => {
+    console.log('🔍 LOBBY DEBUG - handleLeaveRoom');
     leaveRoom();
   };
 
@@ -49,13 +77,19 @@ export const Lobby = () => {
     }
   };
 
-  const nextPhase = () => {
-    // Esta función será llamada desde RoleSelector
-    console.log('Avanzar a selección de roles');
-  };
+  // 🔍 DEBUG: Log del estado actual
+  console.log('🔍 LOBBY RENDER DEBUG:', {
+    isConnected,
+    currentRoomCode,
+    playerCount,
+    isHost,
+    canStartGame,
+    gameState: !!gameState
+  });
 
   // Si no está conectado al socket
   if (!isConnected) {
+    console.log('🔍 LOBBY DEBUG - No conectado, mostrando loading...');
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center">
         <div className="text-white text-center">
@@ -68,6 +102,7 @@ export const Lobby = () => {
 
   // Si no está en una sala (pantalla inicial)
   if (!currentRoomCode) {
+    console.log('🔍 LOBBY DEBUG - No hay sala, mostrando pantalla inicial...');
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
         <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700">
@@ -136,6 +171,7 @@ export const Lobby = () => {
   }
 
   // Pantalla del lobby (dentro de una sala)
+  console.log('🔍 LOBBY DEBUG - Renderizando lobby dentro de sala...');
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4">
       <div className="max-w-4xl mx-auto">
@@ -198,6 +234,19 @@ export const Lobby = () => {
           </div>
         </div>
 
+        {/* 🔍 DEBUG: Panel de información adicional */}
+        <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6">
+          <h4 className="text-red-300 font-bold mb-2">🔍 DEBUG INFO:</h4>
+          <div className="text-red-200 text-sm space-y-1">
+            <p>isConnected: {String(isConnected)}</p>
+            <p>isHost: {String(isHost)}</p>
+            <p>canStartGame: {String(canStartGame)}</p>
+            <p>playerCount: {playerCount}</p>
+            <p>gameState existe: {String(!!gameState)}</p>
+            <p>currentRoomCode: {currentRoomCode}</p>
+          </div>
+        </div>
+
         {/* Controles del host */}
         {isHost && (
           <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-cyan-500">
@@ -212,13 +261,16 @@ export const Lobby = () => {
                 <span>Suficientes jugadores. ¡Puedes iniciar el juego!</span>
               </div>
               
+              {/* 🔍 DEBUG: Botón con logs extensivos */}
               <button
-                onClick={nextPhase}
+                onClick={handleShowRoleSelector}
                 disabled={!canStartGame}
+                type="button"
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                style={{ cursor: canStartGame ? 'pointer' : 'not-allowed' }}
               >
                 <Play size={20} />
-                Seleccionar Roles e Iniciar Juego
+                🔍 DEBUG: Seleccionar Roles e Iniciar Juego
               </button>
               
               <p className="text-sm text-slate-400 text-center">

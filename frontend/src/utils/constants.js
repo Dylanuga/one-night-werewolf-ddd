@@ -102,5 +102,5 @@ export const SOCKET_EVENTS = {
   ERROR: 'error'
 };
 
-export const MAX_PLAYERS = 5;
+export const MAX_PLAYERS = 8;
 export const MIN_PLAYERS = 3;

@@ -1,6 +1,6 @@
 // src/components/NightPhase.jsx
 import React, { useState, useEffect } from 'react';
-import { Moon, Eye, Clock } from 'lucide-react';
+import { Eye, Clock } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { ROLES, TURN_DURATION } from '../utils/constants';
@@ -11,8 +11,7 @@ export const NightPhase = () => {
     privateState,
     currentTurn,
     nightAction,
-    actionResult,
-    isMyTurn
+    actionResult
   } = useGameStore();
 
   const { executeNightAction } = useSocket();
@@ -20,14 +19,23 @@ export const NightPhase = () => {
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const [hasActed, setHasActed] = useState(false);
 
+  // 🔧 FIX: Obtener datos del privateState en lugar de usar currentTurn
   const myRole = privateState?.your_role;
-  const currentTurnRole = currentTurn?.role;
-  const isWerewolfTurn = currentTurnRole === 'werewolf';
-  const isMyWerewolfTurn = isMyTurn() && myRole === 'werewolf';
+  const currentTurnRole = privateState?.current_turn_role;
+  const isMyTurn = privateState?.is_your_turn;
+  const nightActionData = privateState?.night_action;
+
+  console.log('🔧 NIGHTPHASE DEBUG:', {
+    myRole,
+    currentTurnRole,
+    isMyTurn,
+    nightActionData,
+    privateState: !!privateState
+  });
 
   // Timer countdown
   useEffect(() => {
-    if (currentTurn) {
+    if (currentTurnRole) {
       setTimeLeft(TURN_DURATION);
       setHasActed(false);
       
@@ -43,56 +51,60 @@ export const NightPhase = () => {
 
       return () => clearInterval(timer);
     }
-  }, [currentTurn]);
-
-  // Limpiar resultado de acción después de mostrarlo
-  useEffect(() => {
-    if (actionResult) {
-      const timer = setTimeout(() => {
-        // El store ya maneja el auto-clear del actionResult
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [actionResult]);
+  }, [currentTurnRole]);
 
   const handleCenterCardClick = (position) => {
-    if (!isMyWerewolfTurn || hasActed) return;
+    if (!isMyTurn || hasActed) return;
     
     executeNightAction({ center_position: position });
     setHasActed(true);
   };
 
   const renderWerewolfAction = () => {
-    if (!nightAction) return null;
+    if (!nightActionData) {
+      console.log('🔧 NO HAY nightActionData');
+      return (
+        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
+          <p className="text-white">Esperando datos del servidor...</p>
+        </div>
+      );
+    }
+
+    console.log('🔧 RENDERIZANDO WEREWOLF ACTION:', nightActionData);
 
     // Caso A: Mostrar el otro lobo
-    if (nightAction.type === 'show_other_werewolf') {
+    if (nightActionData.type === 'show_other_werewolf') {
       return (
         <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
           <h3 className="text-xl font-bold text-red-400 mb-4">
             🐺 Otros Lobos
           </h3>
-          <p className="text-white text-lg mb-2">
-            {nightAction.message}
+          <p className="text-white text-lg mb-4">
+            {nightActionData.message}
           </p>
           <div className="bg-red-800/50 rounded-lg p-4 mt-4">
-            <p className="text-red-200 font-bold text-xl">
-              {nightAction.other_werewolf_name}
+            <p className="text-red-200 font-bold text-2xl">
+              🐺 {nightActionData.other_werewolf_name}
             </p>
+            <p className="text-red-300 text-sm mt-2">Es tu compañero lobo</p>
           </div>
+          <p className="text-red-200 text-sm mt-4">
+            ¡Ambos conocéis vuestra identidad!
+          </p>
         </div>
       );
     }
 
     // Caso B: Elegir carta del centro
-    if (nightAction.type === 'can_view_center') {
+    if (nightActionData.type === 'can_view_center') {
       return (
         <div className="bg-red-900/30 border border-red-500 rounded-lg p-6">
           <h3 className="text-xl font-bold text-red-400 mb-4 text-center">
             🐺 Eres el único lobo
           </h3>
           <p className="text-white text-center mb-6">
-            {nightAction.message}
+            {nightActionData.message}
           </p>
           
           <div className="grid grid-cols-3 gap-4">
@@ -122,7 +134,13 @@ export const NightPhase = () => {
       );
     }
 
-    return null;
+    console.log('🔧 TIPO DE ACTION NO RECONOCIDO:', nightActionData.type);
+    return (
+      <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
+        <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
+        <p className="text-white">Tipo de acción no reconocido: {nightActionData.type}</p>
+      </div>
+    );
   };
 
   const renderActionResult = () => {
@@ -146,7 +164,7 @@ export const NightPhase = () => {
     }
 
     const roleInfo = ROLES[currentTurnRole];
-    const isMyRoleTurn = myRole === currentTurnRole;
+    const isMyRoleTurn = isMyTurn;
 
     return (
       <div className={`rounded-lg p-6 border ${
@@ -177,7 +195,8 @@ export const NightPhase = () => {
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {isMyRoleTurn && isWerewolfTurn && renderWerewolfAction()}
+        {/* 🔧 FIX: Mostrar acción de werewolf si es mi turno Y soy werewolf */}
+        {isMyRoleTurn && myRole === 'werewolf' && renderWerewolfAction()}
         {actionResult && renderActionResult()}
         
         {!isMyRoleTurn && (
@@ -196,7 +215,7 @@ export const NightPhase = () => {
         <div className="text-center mb-8">
           <div className="text-4xl mb-4">🌙</div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Noche - Fase: {currentTurnRole || 'undefined'}
+            Noche - Fase: {currentTurnRole || 'Preparando...'}
           </h1>
           <p className="text-slate-400">
             Los roles actúan en orden durante la noche
@@ -229,7 +248,7 @@ export const NightPhase = () => {
             Información:
           </h4>
           <div className="text-slate-300 text-sm space-y-1">
-            {isMyTurn() ? (
+            {isMyTurn ? (
               <p>🎯 Es tu turno. Tienes {timeLeft} segundos para actuar.</p>
             ) : (
               <p>⏱️ Esperando turno de: {currentTurnRole}</p>

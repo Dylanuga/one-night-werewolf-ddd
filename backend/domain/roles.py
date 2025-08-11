@@ -9,6 +9,11 @@ class RoleType(Enum):
     SEER = "seer"
     ROBBER = "robber"
     TROUBLEMAKER = "troublemaker"
+    TANNER = "tanner"
+    DRUNK = "drunk"          # 🔧 AÑADIDO
+    MASON = "mason"          # 🔧 AÑADIDO
+    HUNTER = "hunter"        # 🔧 AÑADIDO
+    INSOMNIAC = "insomniac"  # 🔧 AÑADIDO
 
 class Role(ABC):
     """Clase base abstracta para todos los roles del juego"""
@@ -168,6 +173,87 @@ class TroublemakerRole(Role):
         # TODO: Implementar en el futuro
         return {'success': False, 'message': 'Alborotador no implementado aún'}
 
+class TannerRole(Role):
+    """Rol del curtidor - gana si muere"""
+    
+    def __init__(self):
+        super().__init__(RoleType.TANNER)
+    
+    def _get_turn_order(self) -> int:
+        return 999  # El curtidor no tiene turno nocturno
+    
+    def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return None  # El curtidor no hace nada en la noche
+    
+    def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
+        return {'success': False, 'message': 'El curtidor no tiene acciones nocturnas'}
+
+# 🔧 NUEVOS ROLES AÑADIDOS
+class DrunkRole(Role):
+    """Rol del borracho - intercambia su carta con una del centro sin verla"""
+    
+    def __init__(self):
+        super().__init__(RoleType.DRUNK)
+    
+    def _get_turn_order(self) -> int:
+        return 5  # El borracho va después del alborotador
+    
+    def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # TODO: Implementar en el futuro
+        return None
+    
+    def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
+        # TODO: Implementar en el futuro
+        return {'success': False, 'message': 'Borracho no implementado aún'}
+
+class MasonRole(Role):
+    """Rol del masón - se conocen entre ellos"""
+    
+    def __init__(self):
+        super().__init__(RoleType.MASON)
+    
+    def _get_turn_order(self) -> int:
+        return 999  # Los masones no tienen turno nocturno (se ven automáticamente)
+    
+    def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # TODO: Implementar en el futuro  
+        return None
+    
+    def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
+        return {'success': False, 'message': 'Masón no implementado aún'}
+
+class HunterRole(Role):
+    """Rol del cazador - si muere, también muere el jugador al que apunte"""
+    
+    def __init__(self):
+        super().__init__(RoleType.HUNTER)
+    
+    def _get_turn_order(self) -> int:
+        return 999  # El cazador no tiene turno nocturno
+    
+    def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        return None  # El cazador no hace nada en la noche
+    
+    def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
+        return {'success': False, 'message': 'El cazador no tiene acciones nocturnas'}
+
+class InsomniacRole(Role):
+    """Rol del insomne - al final de la noche, ve su propia carta"""
+    
+    def __init__(self):
+        super().__init__(RoleType.INSOMNIAC)
+    
+    def _get_turn_order(self) -> int:
+        return 6  # El insomne va al final de todos los turnos
+    
+    def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # TODO: Implementar en el futuro
+        return None
+    
+    def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
+        # TODO: Implementar en el futuro
+        return {'success': False, 'message': 'Insomne no implementado aún'}
+
 # Factory para crear roles
 class RoleFactory:
     """Factory para crear instancias de roles"""
@@ -179,7 +265,12 @@ class RoleFactory:
             'villager': VillagerRole,
             'seer': SeerRole,
             'robber': RobberRole,
-            'troublemaker': TroublemakerRole
+            'troublemaker': TroublemakerRole,
+            'tanner': TannerRole,
+            'drunk': DrunkRole,        # 🔧 AÑADIDO
+            'mason': MasonRole,        # 🔧 AÑADIDO
+            'hunter': HunterRole,      # 🔧 AÑADIDO
+            'insomniac': InsomniacRole # 🔧 AÑADIDO
         }
         
         if role_type not in role_map:

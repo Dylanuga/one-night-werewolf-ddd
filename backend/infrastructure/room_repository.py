@@ -1,5 +1,4 @@
-# Manejo de almacenamiento de salas (in-memory o Redis)
-
+# backend/infrastructure/room_repository.py
 import json
 from typing import Dict, Optional
 from domain.game_logic import GameLogic
@@ -44,13 +43,14 @@ class RoomRepository:
             rooms[room_code] = {
                 'phase': game.phase.value,
                 'player_count': len(game.players),
-                'players': [p.name for p in game.players.values()]
+                'players': [p.name for p in game.players.values()],
+                'current_turn': game.get_current_turn_role()
             }
         return rooms
 
-# Implementación con Redis para producción
+# Implementación con Redis para producción (FUTURO)
 class RedisRoomRepository(RoomRepository):
-    """Implementación del repositorio usando Redis"""
+    """Implementación del repositorio usando Redis para producción"""
     
     def __init__(self, redis_client):
         self.redis = redis_client
@@ -114,6 +114,25 @@ class RedisRoomRepository(RoomRepository):
                 continue
         return None
     
+    def get_all_rooms(self) -> Dict[str, Dict]:
+        """Obtiene un resumen de todas las salas desde Redis"""
+        rooms = {}
+        pattern = f"{self.key_prefix}*"
+        for key in self.redis.scan_iter(pattern):
+            try:
+                data = self.redis.get(key)
+                if data:
+                    game_state = json.loads(data)
+                    room_code = game_state['room_code']
+                    rooms[room_code] = {
+                        'phase': game_state['phase'],
+                        'player_count': len(game_state['players']),
+                        'players': [p['name'] for p in game_state['players'].values()]
+                    }
+            except (json.JSONDecodeError, KeyError):
+                continue
+        return rooms
+    
     def _serialize_player(self, player) -> Dict:
         """Serializa un objeto Player"""
         return {
@@ -128,8 +147,8 @@ class RedisRoomRepository(RoomRepository):
     
     def _deserialize_game(self, game_state: Dict) -> GameLogic:
         """Deserializa el estado del juego desde JSON"""
-        from ..domain.game_logic import GamePhase
-        from ..domain.player import Player
+        from domain.game_logic import GamePhase
+        from domain.player import Player
         
         game = GameLogic(game_state['room_code'])
         game.phase = GamePhase(game_state['phase'])
