@@ -96,7 +96,6 @@ export const SOCKET_EVENTS = {
   GAME_UPDATE: 'game_update',
   PRIVATE_UPDATE: 'private_update',
   TURN_START: 'turn_start',
-  NIGHT_ACTION: 'night_action',
   ACTION_RESULT: 'action_result',
   GAME_STATE: 'game_state',
   ERROR: 'error'

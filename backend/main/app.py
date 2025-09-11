@@ -12,6 +12,160 @@ from infrastructure.room_repository import RoomRepository
 # Configuración de la aplicación
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
+
+@app.route('/test/create-test-room', methods=['POST'])
+def create_test_room():
+    """
+    Crea una sala de prueba con código fijo 'TEST' y modo de prueba activado.
+    
+    Body JSON esperado:
+    {
+        "role_distribution": {
+            "players": ["werewolf", "mason", "mason", "villager", "villager", "villager"],
+            "center": ["villager", "villager", "villager"]
+        },
+        "auto_start": true,  // opcional, inicia el juego automáticamente
+        "player_names": ["Player1", "Player2", ...] // opcional, nombres personalizados
+    }
+    
+    Ejemplo de uso:
+    POST /test/create-test-room
+    {
+        "role_distribution": {
+            "players": ["werewolf", "mason", "mason", "villager"],
+            "center": ["villager", "seer", "robber"]
+        },
+        "auto_start": true
+    }
+    """
+    try:
+        print(f"🧪 === CREANDO SALA DE PRUEBA TEST ===")
+        
+        data = request.get_json() or {}
+        role_distribution = data.get('role_distribution')
+        auto_start = data.get('auto_start', False)
+        custom_player_names = data.get('player_names', [])
+        
+        # Validar entrada
+        if not role_distribution:
+            return {'error': 'Se requiere role_distribution en el body'}, 400
+        
+        if not isinstance(role_distribution, dict):
+            return {'error': 'role_distribution debe ser un objeto JSON'}, 400
+            
+        if 'players' not in role_distribution or 'center' not in role_distribution:
+            return {'error': 'role_distribution debe tener "players" y "center"'}, 400
+        
+        players_roles = role_distribution['players']
+        center_roles = role_distribution['center']
+        
+        if not isinstance(players_roles, list) or not isinstance(center_roles, list):
+            return {'error': 'players y center deben ser arrays'}, 400
+        
+        if len(players_roles) < 3 or len(players_roles) > 10:
+            return {'error': 'Se requieren entre 3 y 10 jugadores'}, 400
+        
+        if len(center_roles) != 3:
+            return {'error': 'center debe tener exactamente 3 roles'}, 400
+        
+        # Validar roles válidos
+        valid_roles = {'werewolf', 'villager', 'seer', 'robber', 'troublemaker', 
+                      'hunter', 'mason', 'drunk', 'insomniac', 'tanner'}
+        all_roles = players_roles + center_roles
+        invalid_roles = [role for role in all_roles if role not in valid_roles]
+        if invalid_roles:
+            return {'error': f'Roles inválidos: {invalid_roles}. Válidos: {list(valid_roles)}'}, 400
+        
+        room_code = 'TEST'
+        
+        print(f"🧪 Configuración de prueba:")
+        print(f"   - Jugadores: {len(players_roles)} -> {players_roles}")
+        print(f"   - Centro: {len(center_roles)} -> {center_roles}")
+        print(f"   - Auto-start: {auto_start}")
+        
+        # Si ya existe una sala TEST, eliminarla
+        if game_service.room_exists(room_code):
+            print(f"🧪 Sala TEST ya existe, eliminándola...")
+            room_repository.delete_game(room_code)
+        
+        # Crear jugadores de prueba
+        num_players = len(players_roles)
+        test_players = []
+        
+        for i in range(num_players):
+            # Usar nombres personalizados si se proporcionan
+            if i < len(custom_player_names):
+                player_name = custom_player_names[i]
+            else:
+                player_name = f"TestPlayer{i+1}"
+                
+            player_id = get_stable_player_id(player_name, room_code)
+            socket_id = f"test_socket_{i+1}"  # Socket ID ficticio para pruebas
+            test_players.append({
+                'id': player_id,
+                'name': player_name,
+                'socket_id': socket_id
+            })
+        
+        print(f"🧪 Jugadores de prueba:")
+        for player in test_players:
+            print(f"   - {player['name']} (ID: {player['id']})")
+        
+        # Crear la sala con el primer jugador como host
+        host_player = test_players[0]
+        print(f"🧪 Creando sala con host: {host_player['name']}")
+        
+        success = game_service.create_room(room_code, host_player['id'], host_player['name'], host_player['socket_id'])
+        if not success:
+            return {'error': 'No se pudo crear la sala TEST'}, 500
+        
+        # Agregar el resto de jugadores
+        for player in test_players[1:]:
+            print(f"🧪 Agregando jugador: {player['name']}")
+            success = game_service.join_room(room_code, player['id'], player['name'], player['socket_id'])
+            if not success:
+                return {'error': f'No se pudo agregar jugador {player["name"]}'}, 500
+        
+        # Activar modo de prueba
+        print(f"🧪 Activando modo de prueba...")
+        success = game_service.enable_test_mode(room_code, role_distribution)
+        if not success:
+            return {'error': 'No se pudo activar el modo de prueba'}, 500
+        
+        # Establecer roles (necesario antes de iniciar)
+        print(f"🧪 Estableciendo roles...")
+        success = game_service.set_selected_roles(room_code, host_player['id'], all_roles)
+        if not success:
+            return {'error': 'No se pudieron establecer los roles'}, 500
+        
+        result = {
+            'message': 'Sala de prueba TEST creada exitosamente',
+            'room_code': room_code,
+            'players': [{'name': p['name'], 'id': p['id']} for p in test_players],
+            'role_distribution': role_distribution,
+            'test_mode': True,
+            'game_started': False
+        }
+        
+        # Si auto_start está activado, iniciar el juego
+        if auto_start:
+            print(f"🧪 Iniciando juego automáticamente...")
+            success = game_service.start_game(room_code, host_player['id'])
+            if success:
+                result['game_started'] = True
+                result['message'] += ' y juego iniciado automáticamente'
+                print(f"✅ Juego iniciado automáticamente")
+            else:
+                result['game_started'] = False
+                result['warning'] = 'Sala creada pero no se pudo iniciar el juego'
+                print(f"⚠️ No se pudo iniciar el juego automáticamente")
+        
+        print(f"✅ Sala TEST creada exitosamente")
+        return result, 200
+        
+    except Exception as e:
+        print(f"❌ Error en create_test_room: {e}")
+        return {'error': str(e)}, 500
 CORS(app, origins=["http://localhost:3000"])
 socketio = SocketIO(app, cors_allowed_origins="http://localhost:3000", async_mode='eventlet', logger=False, engineio_logger=False)
 
@@ -391,23 +545,147 @@ def debug_connections():
     except Exception as e:
         return {'error': str(e)}, 500
 
-@app.route('/test/enable/<room_code>', methods=['POST'])
-def enable_test_mode(room_code):
-    """Activa el modo de prueba para una sala"""
+@app.route('/test/status')
+def test_status():
+    """Obtiene el estado actual de la sala TEST"""
     try:
-        data = request.get_json()
-        role_distribution = data.get('role_distribution')
+        room_code = 'TEST'
         
-        if not role_distribution:
-            return {'error': 'Se requiere role_distribution'}, 400
+        if not game_service.room_exists(room_code):
+            return {'exists': False, 'message': 'Sala TEST no existe'}, 404
         
-        success = game_service.enable_test_mode(room_code, role_distribution)
-        if success:
-            return {'message': 'Modo de prueba activado'}, 200
-        else:
-            return {'error': 'No se pudo activar el modo de prueba'}, 400
+        # Obtener estado público y detallado para testing
+        game_state = game_service.get_game_state(room_code)
+        if not game_state:
+            return {'error': 'No se pudo obtener el estado del juego'}, 500
+        
+        # Obtener información adicional para debugging
+        game = room_repository.get_game(room_code)
+        
+        result = {
+            'exists': True,
+            'room_code': room_code,
+            'game_state': game_state,
+            'test_mode': getattr(game, 'test_mode', False) if game else False,
+            'phase': game.phase.value if game else 'unknown',
+            'current_turn_role': game.get_current_turn_role() if game else None,
+            'players_count': len(game.players) if game else 0,
+            'players': [
+                {
+                    'name': player.name,
+                    'id': player_id,
+                    'role': player.get_role_name() if hasattr(player, 'get_role_name') else 'unknown',
+                    'is_host': player.is_host,
+                    'is_connected': player.is_connected
+                }
+                for player_id, player in (game.players.items() if game else [])
+            ]
+        }
+        
+        return result, 200
+        
     except Exception as e:
+        print(f"Error en test_status: {e}")
         return {'error': str(e)}, 500
+
+@app.route('/test/reset', methods=['POST'])
+def reset_test_room():
+    """Elimina la sala TEST si existe"""
+    try:
+        room_code = 'TEST'
+        
+        if game_service.room_exists(room_code):
+            room_repository.delete_game(room_code)
+            print(f"🧪 Sala TEST eliminada")
+            return {'message': 'Sala TEST eliminada exitosamente'}, 200
+        else:
+            return {'message': 'Sala TEST no existía'}, 200
+            
+    except Exception as e:
+        print(f"Error en reset_test_room: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/test/advance-turn', methods=['POST'])
+def advance_test_turn():
+    """Avanza manualmente el turno en la sala TEST (solo para debugging)"""
+    try:
+        room_code = 'TEST'
+        
+        if not game_service.room_exists(room_code):
+            return {'error': 'Sala TEST no existe'}, 404
+        
+        game = room_repository.get_game(room_code)
+        if not game:
+            return {'error': 'No se pudo obtener el estado del juego'}, 500
+        
+        if game.phase.value != 'night_phase':
+            return {'error': f'Solo se puede avanzar turno en night_phase, actual: {game.phase.value}'}, 400
+        
+        # Avanzar el turno manualmente
+        advanced = game.advance_night_turn()
+        if advanced:
+            room_repository.save_game(room_code, game)
+            
+            result = {
+                'message': 'Turno avanzado exitosamente',
+                'new_phase': game.phase.value,
+                'current_turn_role': game.get_current_turn_role(),
+                'night_finished': game.phase.value == 'day_phase'
+            }
+            
+            # Emitir actualización
+            game_service._emit_game_update(room_code)
+            
+            return result, 200
+        else:
+            return {'error': 'No se pudo avanzar el turno'}, 400
+            
+    except Exception as e:
+        print(f"Error en advance_test_turn: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/test/presets')
+def test_presets():
+    """Devuelve configuraciones predefinidas para testing"""
+    presets = {
+        'basic_werewolf': {
+            'name': 'Lobo Básico',
+            'description': '1 lobo, 2 masones, 3 aldeanos',
+            'role_distribution': {
+                'players': ['werewolf', 'mason', 'mason', 'villager', 'villager', 'villager'],
+                'center': ['villager', 'seer', 'robber']
+            }
+        },
+        'seer_game': {
+            'name': 'Juego con Vidente',
+            'description': '1 lobo, 1 vidente, 2 aldeanos',
+            'role_distribution': {
+                'players': ['werewolf', 'seer', 'villager', 'villager'],
+                'center': ['villager', 'mason', 'robber']
+            }
+        },
+        'complex_game': {
+            'name': 'Juego Complejo',
+            'description': '1 lobo, 1 vidente, 1 ladrón, 1 alborotador, 2 aldeanos',
+            'role_distribution': {
+                'players': ['werewolf', 'seer', 'robber', 'troublemaker', 'villager', 'villager'],
+                'center': ['villager', 'mason', 'drunk']
+            }
+        },
+        'mason_test': {
+            'name': 'Prueba Masones',
+            'description': '2 masones, 2 aldeanos (sin lobo para test)',
+            'role_distribution': {
+                'players': ['mason', 'mason', 'villager', 'villager'],
+                'center': ['werewolf', 'seer', 'robber']
+            }
+        }
+    }
+    
+    return {
+        'presets': presets,
+        'usage': 'Usa POST /test/create-test-room con el campo role_distribution de cualquier preset'
+    }, 200
 
 @app.route('/test/disable/<room_code>', methods=['POST'])
 def disable_test_mode(room_code):

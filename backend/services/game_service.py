@@ -1,5 +1,6 @@
 # backend/services/game_service.py
 import time
+import threading
 from typing import Dict, List, Optional, Any, Callable
 from domain.game_logic import GameLogic, GamePhase
 from infrastructure.room_repository import RoomRepository
@@ -10,7 +11,8 @@ class GameService:
     def __init__(self, room_repository: RoomRepository, emit_callback: Callable):
         self.room_repository = room_repository
         self.emit_callback = emit_callback
-        self.turn_timers: Dict[str, float] = {}
+        self.turn_timers: Dict[str, threading.Timer] = {}
+        self.TURN_DURATION = 6  # segundos
 
     def create_room(self, room_code: str, host_id: str, host_name: str, socket_id: str) -> bool:
         """Crea una nueva sala de juego"""
@@ -60,8 +62,7 @@ class GameService:
             if success:
                 if not game.players:
                     self.room_repository.delete_game(room_code)
-                    if room_code in self.turn_timers:
-                        del self.turn_timers[room_code]
+                    self._cancel_turn_timer(room_code)
                 else:
                     self.room_repository.save_game(room_code, game)
                     self._emit_game_update(room_code)
@@ -200,10 +201,16 @@ class GameService:
             # Emitir evento de inicio de turno
             self._emit_turn_start(room_code, current_role)
             
+            # 🔧 FIX: Iniciar timer automático para este turno
+            self._start_turn_timer(room_code)
+            
             # Si es turno de werewolf, emitir datos específicos
             if current_role == 'werewolf':
                 print(f"🔧 EMITIENDO DATOS DE WEREWOLF")
                 self._emit_werewolf_turn_data(room_code)
+            elif current_role == 'mason':
+                print(f"🔧 EMITIENDO DATOS DE MASON")
+                self._emit_mason_turn_data(room_code)
             
             print(f"🔧 PRIMER TURNO INICIADO CORRECTAMENTE")
             
@@ -231,9 +238,7 @@ class GameService:
     def _advance_to_day_phase(self, room_code: str):
         """Avanza a la fase de día"""
         try:
-            if room_code in self.turn_timers:
-                del self.turn_timers[room_code]
-            
+            self._cancel_turn_timer(room_code)
             self._emit_game_update(room_code)
         except Exception as e:
             print(f"Error en _advance_to_day_phase: {e}")
@@ -278,6 +283,27 @@ class GameService:
                                 self.emit_callback('night_action', night_action_data, room=player.socket_id)
                                 continue
                         
+                        # 🔧 FIX: Si estamos en turno de mason y este jugador es mason
+                        if (current_turn_role == 'mason' and 
+                            player.get_role_name() == 'mason' and
+                            game.phase.value == 'night_phase'):
+                            
+                            print(f"🔧 RECONEXIÓN DURANTE TURNO MASON: {player_id}")
+                            
+                            # Reenviar datos de night_action
+                            night_action_data = game.get_night_action_data_for_player(player_id)
+                            if night_action_data:
+                                private_state['night_action'] = night_action_data
+                                private_state['current_turn_role'] = 'mason'
+                                private_state['is_your_turn'] = True
+                                
+                                print(f"🔧 REENVIANDO NIGHT_ACTION A MASÓN {player_id}: {night_action_data}")
+                                
+                                # Enviar tanto private_update como night_action separado
+                                self.emit_callback('private_update', private_state, room=player.socket_id)
+                                self.emit_callback('night_action', night_action_data, room=player.socket_id)
+                                continue
+                        
                         # Emisión normal
                         self.emit_callback('private_update', private_state, room=player.socket_id)
                         
@@ -299,7 +325,7 @@ class GameService:
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
-                'duration': 6
+                'duration': self.TURN_DURATION
             }
             
             print(f"🔧 EMITIENDO TURN_START: {turn_data}")
@@ -427,3 +453,116 @@ class GameService:
         except Exception as e:
             print(f"Error en disable_test_mode: {e}")
             return False
+
+    def _start_turn_timer(self, room_code: str):
+        """🔧 FIX: Inicia un timer que avanza automáticamente el turno después de 6 segundos"""
+        try:
+            # Cancelar timer anterior si existe
+            self._cancel_turn_timer(room_code)
+            
+            # Crear nuevo timer
+            timer = threading.Timer(self.TURN_DURATION, self._auto_advance_turn, [room_code])
+            timer.start()
+            self.turn_timers[room_code] = timer
+            
+            print(f"🔧 TIMER INICIADO: {self.TURN_DURATION}s para sala {room_code}")
+            
+        except Exception as e:
+            print(f"Error iniciando timer para {room_code}: {e}")
+
+    def _cancel_turn_timer(self, room_code: str):
+        """🔧 FIX: Cancela el timer de turno para una sala"""
+        try:
+            if room_code in self.turn_timers:
+                timer = self.turn_timers[room_code]
+                timer.cancel()
+                del self.turn_timers[room_code]
+                print(f"🔧 TIMER CANCELADO para sala {room_code}")
+        except Exception as e:
+            print(f"Error cancelando timer para {room_code}: {e}")
+
+    def _auto_advance_turn(self, room_code: str):
+        """🔧 FIX: Avanza automáticamente al siguiente turno cuando expira el timer"""
+        try:
+            print(f"🔧 AUTO-AVANZANDO TURNO para sala {room_code}")
+            
+            game = self.room_repository.get_game(room_code)
+            if not game or game.phase != GamePhase.NIGHT_PHASE:
+                print(f"🔧 Sala {room_code} no válida o no en night_phase")
+                return
+            
+            # Avanzar al siguiente turno
+            advanced = game.advance_night_turn()
+            if advanced:
+                self.room_repository.save_game(room_code, game)
+                
+                # Verificar si la noche terminó
+                if game.phase == GamePhase.DAY_PHASE:
+                    print(f"🔧 NOCHE TERMINADA - AVANZANDO A FASE DE DÍA")
+                    self._advance_to_day_phase(room_code)
+                else:
+                    # Continuar con el siguiente turno
+                    print(f"🔧 CONTINUANDO CON SIGUIENTE TURNO")
+                    self._emit_game_update(room_code)
+                    
+                    # Enviar datos del nuevo turno
+                    current_role = game.get_current_turn_role()
+                    if current_role:
+                        self._emit_turn_start(room_code, current_role)
+                        self._start_turn_timer(room_code)  # Iniciar timer para el siguiente turno
+                        
+                        # Enviar datos específicos del rol
+                        if current_role == 'werewolf':
+                            self._emit_werewolf_turn_data(room_code)
+                        elif current_role == 'mason':
+                            self._emit_mason_turn_data(room_code)
+                        
+        except Exception as e:
+            print(f"Error en auto_advance_turn para {room_code}: {e}")
+
+    def _emit_mason_turn_data(self, room_code: str):
+        """🔧 FIX: Emite datos específicos para el turno de los masones"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return
+            
+            # 🔧 FIX: Obtener TODOS los jugadores con rol de masón
+            mason_players = []
+            for player_id, player in game.players.items():
+                if player.get_role_name() == 'mason':
+                    mason_players.append(player_id)
+            
+            print(f"🔧 JUGADORES MASÓN ENCONTRADOS: {mason_players}")
+            
+            # 🔧 FIX: Emitir datos de acción a CADA masón individualmente
+            for player_id in mason_players:
+                try:
+                    print(f"🔧 PROCESANDO MASÓN: {player_id}")
+                    
+                    # Obtener datos específicos para este masón
+                    night_action_data = game.get_night_action_data_for_player(player_id)
+                    
+                    if night_action_data:
+                        print(f"🔧 EMITIENDO NIGHT_ACTION A MASÓN {player_id}: {night_action_data}")
+                        self._emit_to_player(room_code, player_id, 'night_action', night_action_data)
+                        
+                        # 🔧 FIX ADICIONAL: También forzar actualización del estado privado
+                        private_state = game.get_private_state_for_player(player_id)
+                        if private_state:
+                            # Asegurar que incluye los datos de night_action
+                            private_state['night_action'] = night_action_data
+                            private_state['current_turn_role'] = 'mason'
+                            private_state['is_your_turn'] = True
+                            
+                            print(f"🔧 EMITIENDO PRIVATE_UPDATE A MASÓN {player_id}")
+                            self._emit_to_player(room_code, player_id, 'private_update', private_state)
+                    else:
+                        print(f"🔧 NO HAY NIGHT_ACTION_DATA para masón {player_id}")
+                        
+                except Exception as player_error:
+                    print(f"❌ Error emitiendo acción nocturna a masón {player_id}: {player_error}")
+                    continue
+                    
+        except Exception as e:
+            print(f"❌ Error en _emit_mason_turn_data: {e}")

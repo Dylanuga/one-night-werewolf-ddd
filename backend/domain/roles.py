@@ -213,14 +213,48 @@ class MasonRole(Role):
         super().__init__(RoleType.MASON)
     
     def _get_turn_order(self) -> int:
-        return 999  # Los masones no tienen turno nocturno (se ven automáticamente)
+        return 2  # Los masones van después de los lobos
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro  
+        """
+        Los masones se reconocen entre ellos.
+        Si está solo, aparece el mensaje "Estás solo".
+        Si ambos están en el centro, los demás esperan 6 segundos.
+        """
+        masons_in_game = [
+            pid for pid, player in game_state['players'].items() 
+            if player['role'] == 'mason'
+        ]
+        
+        masons_in_center = [
+            i for i, role in enumerate(game_state['center_cards']) 
+            if role == 'mason'
+        ]
+        
+        # Caso A: Dos masones entre jugadores - se reconocen
+        if len(masons_in_game) == 2:
+            other_mason = [mid for mid in masons_in_game if mid != player_id][0]
+            other_mason_name = game_state['players'][other_mason]['name']
+            return {
+                'type': 'show_other_mason',
+                'other_mason_name': other_mason_name,
+                'message': f'Tu compañero masón es: {other_mason_name}'
+            }
+        
+        # Caso B: Un masón entre jugadores (el otro está en el centro) - está solo
+        elif len(masons_in_game) == 1:
+            return {
+                'type': 'alone',
+                'message': 'Estás solo. Tu compañero masón no está en juego.'
+            }
+        
+        # Caso C: Ambos masones están en el centro - no hay masones activos
+        # Este caso se maneja en la lógica de juego principal (espera de 6 segundos)
         return None
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        return {'success': False, 'message': 'Masón no implementado aún'}
+        # Los masones no realizan acciones, solo se reconocen automáticamente
+        return {'success': True, 'message': 'Los masones se han reconocido'}
 
 class HunterRole(Role):
     """Rol del cazador - si muere, también muere el jugador al que apunte"""

@@ -111,7 +111,22 @@ export const RoleSelector = ({ onBack }) => {
     
     setSelectedRoles(prev => {
       const currentCount = prev[roleType] || 0;
-      const newCount = Math.max(0, currentCount + change);
+      let newCount = Math.max(0, currentCount + change);
+      
+      // 🔧 LÓGICA ESPECIAL PARA MASONES: siempre van de 2 en 2
+      if (roleType === 'mason') {
+        if (change > 0 && currentCount === 0) {
+          // Si añadimos masones y no había ninguno, añadir 2 directamente
+          newCount = 2;
+        } else if (change < 0 && currentCount > 0) {
+          // Si quitamos masones, quitar todos (volver a 0)
+          newCount = 0;
+        }
+        // Si ya hay 2 masones y se intenta añadir más, no hacer nada
+        else if (change > 0 && currentCount >= 2) {
+          newCount = currentCount; // Mantener el valor actual
+        }
+      }
       
       // 🔧 CAMBIO CRÍTICO: Solo actualizar estado local, NO enviar inmediatamente
       return {
@@ -184,6 +199,11 @@ export const RoleSelector = ({ onBack }) => {
   const RoleControl = ({ roleType, roleInfo }) => {
     const count = selectedRoles[roleType] || 0;
     
+    // 🔧 LÓGICA ESPECIAL PARA MASONES
+    const isMason = roleType === 'mason';
+    const canAdd = isMason ? count === 0 : totalSelected < requiredRoles;
+    const canRemove = count > 0;
+    
     return (
       <div
         className={`bg-slate-800 rounded-lg p-6 border transition-all duration-200 ${
@@ -202,13 +222,19 @@ export const RoleSelector = ({ onBack }) => {
                   Seleccionado: {count}
                 </span>
               )}
+              {/* 🔧 INFORMACIÓN ESPECIAL PARA MASONES */}
+              {isMason && (
+                <div className="text-xs text-cyan-400 mt-1">
+                  ⚠️ Siempre van de 2 en 2
+                </div>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             <button
               onClick={() => updateRoleCount(roleType, -1)}
-              disabled={count === 0}
+              disabled={!canRemove}
               className="w-8 h-8 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded flex items-center justify-center transition-colors"
             >
               <Minus size={16} />
@@ -220,7 +246,7 @@ export const RoleSelector = ({ onBack }) => {
             
             <button
               onClick={() => updateRoleCount(roleType, 1)}
-              disabled={totalSelected >= requiredRoles}
+              disabled={!canAdd}
               className="w-8 h-8 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:opacity-50 text-white rounded flex items-center justify-center transition-colors"
             >
               <Plus size={16} />
@@ -229,6 +255,13 @@ export const RoleSelector = ({ onBack }) => {
         </div>
         
         <p className="text-slate-300 text-sm">{roleInfo.description}</p>
+        
+        {/* 🔧 INFORMACIÓN ADICIONAL PARA MASONES */}
+        {isMason && count === 0 && (
+          <div className="mt-3 p-2 bg-cyan-900/30 border border-cyan-500/50 rounded text-xs text-cyan-300">
+            💡 Al añadir masones se seleccionarán automáticamente 2
+          </div>
+        )}
       </div>
     );
   };

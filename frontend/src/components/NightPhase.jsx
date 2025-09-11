@@ -60,6 +60,71 @@ export const NightPhase = () => {
     setHasActed(true);
   };
 
+  const renderMasonAction = () => {
+    if (!nightActionData) {
+      console.log('🔧 NO HAY nightActionData para mason');
+      return (
+        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Masón</h3>
+          <p className="text-white">Esperando datos del servidor...</p>
+        </div>
+      );
+    }
+
+    console.log('🔧 RENDERIZANDO MASON ACTION:', nightActionData);
+
+    // Caso A: Mostrar el otro masón
+    if (nightActionData.type === 'show_other_mason') {
+      return (
+        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-cyan-400 mb-4">
+            🔨 Otros Masones
+          </h3>
+          <p className="text-white text-lg mb-4">
+            {nightActionData.message}
+          </p>
+          <div className="bg-cyan-800/50 rounded-lg p-4 mt-4">
+            <p className="text-cyan-200 font-bold text-2xl">
+              🔨 {nightActionData.other_mason_name}
+            </p>
+            <p className="text-cyan-300 text-sm mt-2">Es tu compañero masón</p>
+          </div>
+          <p className="text-cyan-200 text-sm mt-4">
+            ¡Ambos conocéis vuestra identidad!
+          </p>
+        </div>
+      );
+    }
+
+    // Caso B: Masón solo (el otro está en el centro)
+    if (nightActionData.type === 'alone') {
+      return (
+        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-cyan-400 mb-4">
+            🔨 Masón Solitario
+          </h3>
+          <p className="text-white text-lg mb-4">
+            {nightActionData.message}
+          </p>
+          <div className="bg-slate-800/50 rounded-lg p-4 mt-4">
+            <p className="text-slate-300 text-lg">😔 Estás solo</p>
+            <p className="text-slate-400 text-sm mt-2">
+              Tu compañero masón no está en juego (está en el centro)
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    console.log('🔧 TIPO DE ACTION MASON NO RECONOCIDO:', nightActionData.type);
+    return (
+      <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
+        <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Masón</h3>
+        <p className="text-white">Tipo de acción no reconocido: {nightActionData.type}</p>
+      </div>
+    );
+  };
+
   const renderWerewolfAction = () => {
     if (!nightActionData) {
       console.log('🔧 NO HAY nightActionData');
@@ -195,14 +260,32 @@ export const NightPhase = () => {
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {/* 🔧 FIX: Mostrar acción de werewolf si es mi turno Y soy werewolf */}
+        {/* 🔧 FIX: Mostrar acción según el rol */}
         {isMyRoleTurn && myRole === 'werewolf' && renderWerewolfAction()}
+        {isMyRoleTurn && myRole === 'mason' && renderMasonAction()}
         {actionResult && renderActionResult()}
         
         {!isMyRoleTurn && (
-          <p className="text-slate-400 text-center">
-            Esperando a que {currentTurnRole} complete su turno...
-          </p>
+          <>
+            {currentTurnRole === 'mason' && !gameState?.players?.some(p => p.role === 'mason') ? (
+              // Caso especial: fase de masones pero no hay masones en juego
+              <div className="text-center">
+                <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 mb-4">
+                  <h4 className="text-cyan-400 font-bold text-lg mb-2">🔨 Fase de Masones</h4>
+                  <p className="text-slate-300">
+                    Los masones están en el centro. Esperando...
+                  </p>
+                  <div className="mt-3 text-cyan-300 text-sm">
+                    ⏳ Los demás jugadores esperan {timeLeft} segundos
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center">
+                Esperando a que {currentTurnRole} complete su turno...
+              </p>
+            )}
+          </>
         )}
       </div>
     );

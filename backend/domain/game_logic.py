@@ -169,6 +169,24 @@ class GameLogic:
             if player.can_act_at_night():
                 players_with_turns.append((player_id, player.get_turn_order()))
         
+        # Verificar si hay masones en la partida pero ambos están en el centro
+        masons_in_game = [
+            pid for pid, player in self.players.items() 
+            if player.get_role_name() == 'mason'
+        ]
+        
+        masons_in_center = [
+            i for i, role in enumerate(self.center_cards) 
+            if role == 'mason'
+        ]
+        
+        # Si hay masones seleccionados pero ambos están en el centro,
+        # agregar un turno especial de "masones ausentes"
+        if len(masons_in_center) == 2 and len(masons_in_game) == 0:
+            # Agregar un turno ficticio para simular la espera de masones
+            players_with_turns.append(('mason_wait', 2))  # turn_order 2 como los masones
+            self.add_log("🔨 Masones están en el centro - fase de espera activada")
+        
         # Ordenar por turn_order y retornar solo los player_ids
         players_with_turns.sort(key=lambda x: x[1])
         return [player_id for player_id, _ in players_with_turns]
@@ -186,6 +204,10 @@ class GameLogic:
         current_player = self.get_current_turn_player()
         if not current_player:
             return None
+        
+        # Caso especial: masones ausentes (ambos en el centro)
+        if current_player == 'mason_wait':
+            return 'mason'
         
         return self.players[current_player].get_role_name()
     
@@ -213,6 +235,11 @@ class GameLogic:
             return {'success': False, 'message': 'Jugador no encontrado'}
         
         current_turn_player = self.get_current_turn_player()
+        
+        # Caso especial: turno de masones ausentes
+        if current_turn_player == 'mason_wait':
+            return {'success': False, 'message': 'Los masones están en el centro - no hay acciones'}
+        
         if current_turn_player != player_id:
             return {'success': False, 'message': 'No es tu turno'}
         
@@ -245,8 +272,12 @@ class GameLogic:
         current_player = self.get_current_turn_player()
         current_role = self.get_current_turn_role()
         if current_player and current_role:
-            player_name = self.players[current_player].name
-            self.add_log(f"--- Fase: {current_role} ---")
+            # Caso especial para masones ausentes
+            if current_player == 'mason_wait':
+                self.add_log(f"🔨 Fase: Masones (ausentes) - Los demás esperan...")
+            else:
+                player_name = self.players[current_player].name
+                self.add_log(f"--- Fase: {current_role} ({player_name}) ---")
         
         return True
     
@@ -294,14 +325,20 @@ class GameLogic:
             return public_state
         
         player = self.players[player_id]
+        current_turn_player = self.get_current_turn_player()
+        
+        # Determinar si es el turno del jugador (excluyendo casos especiales)
+        is_your_turn = (current_turn_player == player_id and 
+                       current_turn_player != 'mason_wait')
+        
         private_data = {
             'your_role': player.get_role_name() if player.role else None,
             'your_original_role': player.original_role,
-            'is_your_turn': self.get_current_turn_player() == player_id
+            'is_your_turn': is_your_turn
         }
         
         # Añadir datos de acción nocturna si es su turno
-        if private_data['is_your_turn']:
+        if is_your_turn:
             night_action_data = self.get_night_action_data_for_player(player_id)
             if night_action_data:
                 private_data['night_action'] = night_action_data
