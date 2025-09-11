@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import { useSocket } from './hooks/useSocket';
 import { Lobby } from './components/Lobby';
@@ -7,12 +7,13 @@ import { RoleSelector } from './components/RoleSelector';
 import { NightPhase } from './components/NightPhase';
 import { GameLog } from './components/GameLog';
 import { GAME_PHASES } from './utils/constants';
-import { AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 function App() {
   const {
     gameState,
     privateState,
+    playerName,
     error,
     isConnected,
     getCurrentPhase,
@@ -25,6 +26,12 @@ function App() {
 
   const currentPhase = getCurrentPhase();
 
+  // 🔧 NUEVA LÓGICA: Determinar si el usuario actual es host
+  const players = gameState?.players || [];
+  const currentPlayerName = playerName;
+  const hostPlayer = players.find(p => p.is_host);
+  const isCurrentUserHost = hostPlayer && hostPlayer.name === currentPlayerName;
+
   // Manejar errores con auto-hide
   useEffect(() => {
     if (error) {
@@ -36,33 +43,82 @@ function App() {
     }
   }, [error]);
 
-  // 🔧 SOLUCIÓN: Handlers estables con useCallback
-  const handleShowRoleSelector = useCallback(() => {
-    setShowRoleSelector(true);
-  }, []);
+  // Debug: Log de cambios de estado
+  useEffect(() => {
+    console.log('Estado del juego actualizado:', {
+      phase: currentPhase,
+      gameState,
+      privateState,
+      isCurrentUserHost,
+      hostPlayer: hostPlayer?.name
+    });
+  }, [currentPhase, gameState, privateState, isCurrentUserHost, hostPlayer]);
 
-  const handleBackToLobby = useCallback(() => {
+  const handleShowRoleSelector = () => {
+    // 🔧 CRÍTICO: Solo el host puede ir a RoleSelector
+    if (isCurrentUserHost) {
+      setShowRoleSelector(true);
+    } else {
+      console.warn('❌ Solo el host puede acceder a la selección de roles');
+    }
+  };
+
+  const handleBackToLobby = () => {
     setShowRoleSelector(false);
-  }, []);
+  };
 
-  const renderCurrentPhase = () => {
-    // Si estamos mostrando el selector de roles manualmente
-    if (showRoleSelector && currentPhase === GAME_PHASES.LOBBY) {
-      return <RoleSelector onBack={handleBackToLobby} />;
+  // 🔧 NUEVA FUNCIÓN: Determinar qué pantalla mostrar según usuario y fase
+  const getScreenForCurrentUser = () => {
+    // Si estamos mostrando el selector de roles manualmente (solo host)
+    if (showRoleSelector && currentPhase === GAME_PHASES.LOBBY && isCurrentUserHost) {
+      return 'role_selector';
     }
 
-    // Renderizar según la fase actual
+    // Basado en la fase del juego
     switch (currentPhase) {
       case GAME_PHASES.LOBBY:
-        return <Lobby onNext={handleShowRoleSelector} />;
+        return 'lobby';
       
       case GAME_PHASES.ROLE_SELECTION:
-        return <RoleSelector onBack={handleBackToLobby} />;
+        // 🎯 AQUÍ ESTÁ EL FIX PRINCIPAL:
+        // Solo el host ve RoleSelector, no-hosts se quedan en Lobby
+        return isCurrentUserHost ? 'role_selector' : 'lobby_with_roles';
       
       case GAME_PHASES.NIGHT_PHASE:
-        return <NightPhase />;
+        return 'night_phase';
       
       case GAME_PHASES.DAY_PHASE:
+        return 'day_phase';
+      
+      case GAME_PHASES.VOTING:
+        return 'voting';
+      
+      case GAME_PHASES.GAME_END:
+        return 'game_end';
+      
+      default:
+        return 'loading';
+    }
+  };
+
+  const renderCurrentScreen = () => {
+    const screen = getScreenForCurrentUser();
+    
+    switch (screen) {
+      case 'lobby':
+        return <Lobby onNext={handleShowRoleSelector} />;
+      
+      case 'lobby_with_roles':
+        // 🆕 NUEVO: Lobby especial para no-hosts durante selección de roles
+        return <Lobby onNext={handleShowRoleSelector} showRoleSelection={true} />;
+      
+      case 'role_selector':
+        return <RoleSelector onBack={handleBackToLobby} />;
+      
+      case 'night_phase':
+        return <NightPhase />;
+      
+      case 'day_phase':
         return (
           <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
@@ -83,7 +139,7 @@ function App() {
           </div>
         );
       
-      case GAME_PHASES.VOTING:
+      case 'voting':
         return (
           <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
@@ -104,7 +160,7 @@ function App() {
           </div>
         );
       
-      case GAME_PHASES.GAME_END:
+      case 'game_end':
         return (
           <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
@@ -123,6 +179,7 @@ function App() {
           </div>
         );
       
+      case 'loading':
       default:
         return (
           <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
@@ -159,7 +216,9 @@ function App() {
               <div className={`flex items-center gap-2 text-sm ${
                 isConnected ? 'text-green-400' : 'text-red-400'
               }`}>
-                {isConnected ? <Wifi size={16} /> : <WifiOff size={16} />}
+                <span className="text-sm">
+                  {isConnected ? '🟢' : '🔴'}
+                </span>
                 {isConnected ? 'Conectado' : 'Desconectado'}
               </div>
               
@@ -167,6 +226,17 @@ function App() {
               {gameState && (
                 <span className="bg-blue-700 text-white px-3 py-1 rounded text-sm">
                   {currentPhase.replace('_', ' ')}
+                </span>
+              )}
+
+              {/* 🆕 NUEVO: Indicador de rol de usuario */}
+              {gameState && (
+                <span className={`px-3 py-1 rounded text-sm ${
+                  isCurrentUserHost 
+                    ? 'bg-yellow-600 text-white' 
+                    : 'bg-slate-600 text-white'
+                }`}>
+                  {isCurrentUserHost ? '👑 Host' : '👤 Jugador'}
                 </span>
               )}
             </div>
@@ -179,7 +249,7 @@ function App() {
         <div className="flex flex-col lg:flex-row min-h-screen">
           {/* Contenido principal */}
           <div className="flex-1">
-            {renderCurrentPhase()}
+            {renderCurrentScreen()}
           </div>
 
           {/* Panel lateral con log (solo en fases de juego) */}
@@ -212,7 +282,7 @@ function App() {
       {!isConnected && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center">
           <div className="bg-slate-800 rounded-lg p-8 max-w-sm w-full mx-4 border border-slate-700 text-center">
-            <WifiOff size={48} className="text-red-400 mx-auto mb-4" />
+            <span className="text-4xl mb-4 block">📡</span>
             <h3 className="text-xl font-bold text-white mb-2">Conexión perdida</h3>
             <p className="text-slate-400 mb-4">
               Intentando reconectar al servidor...
@@ -226,9 +296,13 @@ function App() {
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed bottom-4 left-4 z-50 bg-black/80 text-green-400 p-3 rounded text-xs font-mono max-w-xs">
           <div>Phase: {currentPhase}</div>
+          <div>Screen: {getScreenForCurrentUser()}</div>
           <div>Connected: {isConnected ? 'Yes' : 'No'}</div>
           <div>Room: {gameState?.room_code || 'None'}</div>
           <div>Players: {gameState?.player_count || 0}</div>
+          <div>Current User: {currentPlayerName}</div>
+          <div>Host: {hostPlayer?.name || 'None'}</div>
+          <div>Is Host: {isCurrentUserHost ? 'YES' : 'NO'}</div>
           {privateState?.your_role && (
             <div>Role: {privateState.your_role}</div>
           )}

@@ -27,6 +27,8 @@ class GameLogic:
         self.night_turns: List[str] = []  # Lista ordenada de player_ids con turnos nocturnos
         self.game_logs: List[Dict[str, Any]] = []
         self.max_players = 8  # 🔧 Aumentado para más flexibilidad
+        self.test_mode = False
+        self.test_role_distribution = None  # Para asignar roles específicos en pruebas
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
         """Añade un jugador a la sala"""
@@ -81,6 +83,27 @@ class GameLogic:
         self.phase = GamePhase.ROLE_SELECTION
         return True
     
+    def enable_test_mode(self, role_distribution: Dict[str, List[str]] = None):
+        """
+        Activa el modo de prueba y opcionalmente establece una distribución específica de roles.
+        
+        Args:
+            role_distribution: Diccionario con la distribución de roles.
+                Ejemplo: {
+                    'players': ['werewolf', 'villager', 'villager', 'villager'],
+                    'center': ['werewolf', 'villager', 'villager']
+                }
+        """
+        self.test_mode = True
+        self.test_role_distribution = role_distribution
+        self.add_log("🧪 Modo de prueba activado")
+    
+    def disable_test_mode(self):
+        """Desactiva el modo de prueba"""
+        self.test_mode = False
+        self.test_role_distribution = None
+        self.add_log("🎲 Modo de prueba desactivado")
+    
     def start_game(self) -> bool:
         """Inicia la partida distribuyendo roles y comenzando la fase nocturna"""
         if self.phase != GamePhase.ROLE_SELECTION:
@@ -92,9 +115,15 @@ class GameLogic:
         # 🔧 DEBUG: Añadido para verificar distribución
         print(f"🔍 ROLES ORIGINALES: {self.selected_roles}")
         
-        # Mezclar roles y repartir
-        shuffled_roles = self.selected_roles.copy()
-        random.shuffle(shuffled_roles)
+        # Usar distribución de prueba o mezclar aleatoriamente
+        if self.test_mode and self.test_role_distribution:
+            shuffled_roles = (
+                self.test_role_distribution['players'] + 
+                self.test_role_distribution['center']
+            )
+        else:
+            shuffled_roles = self.selected_roles.copy()
+            random.shuffle(shuffled_roles)
         
         print(f"🔍 ROLES MEZCLADOS: {shuffled_roles}")
         

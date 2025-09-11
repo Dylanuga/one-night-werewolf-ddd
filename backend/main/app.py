@@ -226,7 +226,7 @@ def on_set_roles(data):
             return
         
         if request.sid not in connected_players:
-            print(f"❌ Socket no registrado")
+            print(f"❌ ERROR: Socket ID no encontrado en connected_players")
             emit('error', {'message': 'No estás en ninguna sala'})
             return
         
@@ -240,23 +240,30 @@ def on_set_roles(data):
             emit('error', {'message': 'No se encontró tu sala'})
             return
         
-        # Verificar host
+        # Verificar que el jugador es realmente el host
         game = room_repository.get_game(room_code)
-        if not game or player_id not in game.players:
-            emit('error', {'message': 'Jugador no encontrado'})
+        if not game:
+            emit('error', {'message': 'Sala no encontrada'})
             return
         
-        is_host = game.players[player_id].is_host
-        print(f"   is_host: {is_host}")
+        if player_id not in game.players:
+            emit('error', {'message': 'Jugador no encontrado en la sala'})
+            return
         
-        if not is_host:
+        if not game.players[player_id].is_host:
             emit('error', {'message': 'Solo el host puede establecer roles'})
             return
         
         success = game_service.set_selected_roles(room_code, player_id, roles)
         if success:
+            # 🎯 CRÍTICO: Emitir roles_set a TODA LA SALA, NO solo al host
+            print(f"✅ EMITIENDO roles_set A TODA LA SALA {room_code}: {roles}")
+            socketio.emit('roles_set', {'roles': roles}, room=room_code)
+            
+            # También emitir al host individual (por compatibilidad)
             emit('roles_set', {'roles': roles})
-            print(f"✅ ROLES ESTABLECIDOS POR HOST: {player_id}")
+            
+            print(f"✅ Roles establecidos y sincronizados en sala: {roles}")
         else:
             emit('error', {'message': 'No se pudieron establecer los roles'})
         
@@ -300,7 +307,13 @@ def on_start_game(data=None):
         
         success = game_service.start_game(room_code, player_id)
         if success:
+            # 🎯 CRÍTICO: Emitir game_started a TODA LA SALA
+            print(f"✅ EMITIENDO game_started A TODA LA SALA {room_code}")
+            socketio.emit('game_started', {}, room=room_code)
+            
+            # También emitir al host individual (por compatibilidad)
             emit('game_started')
+            
             print(f"✅ JUEGO INICIADO POR HOST: {player_id}")
         else:
             emit('error', {'message': 'No se pudo iniciar el juego'})
@@ -375,6 +388,36 @@ def debug_connections():
             'connected_players': connected_players,
             'total_connections': len(connected_players)
         }
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/test/enable/<room_code>', methods=['POST'])
+def enable_test_mode(room_code):
+    """Activa el modo de prueba para una sala"""
+    try:
+        data = request.get_json()
+        role_distribution = data.get('role_distribution')
+        
+        if not role_distribution:
+            return {'error': 'Se requiere role_distribution'}, 400
+        
+        success = game_service.enable_test_mode(room_code, role_distribution)
+        if success:
+            return {'message': 'Modo de prueba activado'}, 200
+        else:
+            return {'error': 'No se pudo activar el modo de prueba'}, 400
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/test/disable/<room_code>', methods=['POST'])
+def disable_test_mode(room_code):
+    """Desactiva el modo de prueba para una sala"""
+    try:
+        success = game_service.disable_test_mode(room_code)
+        if success:
+            return {'message': 'Modo de prueba desactivado'}, 200
+        else:
+            return {'error': 'No se pudo desactivar el modo de prueba'}, 400
     except Exception as e:
         return {'error': str(e)}, 500
 

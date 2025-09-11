@@ -73,50 +73,110 @@ class GameService:
             return False
 
     def set_selected_roles(self, room_code: str, player_id: str, roles: List[str]) -> bool:
-        """El host selecciona los roles para la partida"""
+        """El host selecciona los roles para la partida - VALIDACIÓN RELAJADA"""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
+                print(f"🔧 ERROR: Sala {room_code} no encontrada")
                 return False
             
+            # Verificar que el jugador es el host
             if player_id not in game.players or not game.players[player_id].is_host:
+                print(f"🔧 ERROR: {player_id} no es host o no existe")
                 return False
             
+            print(f"🔧 SINCRONIZANDO ROLES (sin validación estricta):")
+            print(f"   Roles recibidos: {len(roles)} -> {roles}")
+            
+            # ✅ VALIDACIÓN MÍNIMA: Solo verificar que no esté vacío y sean roles válidos
+            if not roles:
+                print(f"⏭️ SKIP: Lista de roles vacía, no actualizando")
+                return True  # No es error, simplemente no hay nada que hacer
+            
+            # Validación básica: roles válidos
+            valid_roles = {'werewolf', 'villager', 'seer', 'robber', 'troublemaker', 
+                          'hunter', 'mason', 'drunk', 'insomniac', 'tanner'}
+            invalid_roles = [role for role in roles if role not in valid_roles]
+            if invalid_roles:
+                print(f"❌ ERROR: Roles inválidos: {invalid_roles}")
+                return False
+            
+            print(f"✅ ROLES VÁLIDOS - SINCRONIZANDO...")
+            
+            # Aplicar los roles al juego SIN validación estricta
             success = game.set_selected_roles(roles)
             if success:
                 self.room_repository.save_game(room_code, game)
                 self._emit_game_update(room_code)
+                print(f"✅ ROLES SINCRONIZADOS EN {room_code}")
                 return True
+            else:
+                print(f"❌ ERROR: game.set_selected_roles falló")
+                return False
             
-            return False
         except Exception as e:
-            print(f"Error en set_selected_roles: {e}")
+            print(f"❌ ERROR en set_selected_roles: {e}")
             return False
 
     def start_game(self, room_code: str, player_id: str) -> bool:
-        """El host inicia la partida"""
+        """El host inicia la partida - AQUÍ SÍ VALIDACIÓN ESTRICTA"""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
+                print(f"❌ ERROR: Sala {room_code} no encontrada")
                 return False
             
             if player_id not in game.players or not game.players[player_id].is_host:
+                print(f"❌ ERROR: {player_id} no es host o no existe")
                 return False
             
+            # 🎯 VALIDACIÓN ESTRICTA ANTES DE INICIAR
+            player_count = len(game.players)
+            required_roles = player_count + 3
+            current_roles = game.selected_roles or []
+            
+            print(f"🔧 VALIDACIÓN ESTRICTA PARA INICIAR JUEGO:")
+            print(f"   Jugadores: {player_count}")
+            print(f"   Roles requeridos: {required_roles}")
+            print(f"   Roles actuales: {len(current_roles)} -> {current_roles}")
+            
+            # Validación 1: Número correcto de roles
+            if len(current_roles) != required_roles:
+                print(f"❌ ERROR: Se necesitan {required_roles} roles, tienes {len(current_roles)}")
+                return False
+            
+            # Validación 2: Al menos 1 lobo
+            werewolf_count = current_roles.count('werewolf')
+            if werewolf_count < 1:
+                print(f"❌ ERROR: Se necesita al menos 1 lobo, tienes {werewolf_count}")
+                return False
+            
+            # Validación 3: No más de la mitad de lobos
+            max_werewolves = max(1, player_count // 2)
+            if werewolf_count > max_werewolves:
+                print(f"❌ ERROR: Demasiados lobos ({werewolf_count}), máximo permitido: {max_werewolves}")
+                return False
+            
+            print(f"✅ VALIDACIÓN EXITOSA - INICIANDO JUEGO:")
+            print(f"   Lobos: {werewolf_count} (válido: 1-{max_werewolves})")
+            print(f"   Total: {len(current_roles)} roles")
+            
+            # Ahora sí, iniciar el juego
             success = game.start_game()
             if success:
                 self.room_repository.save_game(room_code, game)
                 self._emit_game_update(room_code)
                 
-                # 🔧 FIX: INICIAR EL PRIMER TURNO NOCTURNO
                 print(f"🔧 INICIANDO TURNOS NOCTURNOS PARA SALA: {room_code}")
                 self._start_first_night_turn(room_code)
                 
                 return True
+            else:
+                print(f"❌ ERROR: game.start_game() falló")
+                return False
             
-            return False
         except Exception as e:
-            print(f"Error en start_game: {e}")
+            print(f"❌ ERROR en start_game: {e}")
             return False
 
     def _start_first_night_turn(self, room_code: str):
@@ -339,3 +399,31 @@ class GameService:
         except Exception as e:
             print(f"Error en get_player_room: {e}")
             return None
+
+    def enable_test_mode(self, room_code: str, role_distribution: Dict[str, List[str]]) -> bool:
+        """Activa el modo de prueba para una sala específica"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            
+            game.enable_test_mode(role_distribution)
+            self.room_repository.save_game(room_code, game)
+            return True
+        except Exception as e:
+            print(f"Error en enable_test_mode: {e}")
+            return False
+
+    def disable_test_mode(self, room_code: str) -> bool:
+        """Desactiva el modo de prueba para una sala específica"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            
+            game.disable_test_mode()
+            self.room_repository.save_game(room_code, game)
+            return True
+        except Exception as e:
+            print(f"Error en disable_test_mode: {e}")
+            return False

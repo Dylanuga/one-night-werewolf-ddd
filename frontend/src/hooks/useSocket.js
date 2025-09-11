@@ -22,12 +22,15 @@ export const useSocket = () => {
   const setError = useGameStore(state => state.setError);
   const addLog = useGameStore(state => state.addLog);
   
+  // 🆕 NUEVO: Función para manejar roles seleccionados
+  const setSelectedRoles = useGameStore(state => state.setSelectedRoles);
+  
   // Obtener estado actual para reconexión
   const gameState = useGameStore(state => state.gameState);
   const playerName = useGameStore(state => state.playerName);
 
   useEffect(() => {
-    console.log('🔧 useSocket INICIADO - FIX DEFINITIVO');
+    console.log('🔧 useSocket INICIADO - CON SINCRONIZACIÓN DE ROLES');
 
     // Guardar datos para reconexión
     if (gameState?.room_code && playerName) {
@@ -128,12 +131,32 @@ export const useSocket = () => {
       addLog('Saliste de la sala');
       setGameState(null);
       setPrivateState(null);
+      // 🆕 NUEVO: Limpiar roles seleccionados
+      setSelectedRoles({});
     });
 
-    // Eventos de juego
+    // 🆕 MEJORADO: Eventos de juego con sincronización de roles
     socket.on(SOCKET_EVENTS.ROLES_SET, (data) => {
-      console.log('🎭 Roles establecidos:', data.roles);
-      addLog('Roles seleccionados por el host');
+      console.log('🎭 ROLES ESTABLECIDOS POR EL HOST:', data.roles);
+      
+      // Convertir array de roles a objeto contador para la UI
+      const roleCount = {};
+      data.roles.forEach(role => {
+        roleCount[role] = (roleCount[role] || 0) + 1;
+      });
+      
+      console.log('📊 Contador de roles procesado:', roleCount);
+      
+      // 🎯 ACTUALIZAR ESTADO GLOBAL: Esto permitirá que todos los componentes vean los roles
+      setSelectedRoles(roleCount);
+      
+      // Log para toda la sala
+      addLog(`Host seleccionó ${data.roles.length} roles`);
+      
+      // 🆕 NUEVO: Emitir evento personalizado para componentes que lo necesiten
+      window.dispatchEvent(new CustomEvent('rolesUpdated', { 
+        detail: { roles: data.roles, roleCount } 
+      }));
     });
 
     socket.on(SOCKET_EVENTS.GAME_STARTED, () => {
@@ -227,13 +250,23 @@ export const useSocket = () => {
 
   const leaveRoom = useCallback(() => {
     console.log('👋 Salir de sala');
+    // 🆕 NUEVO: Limpiar roles al salir
+    setSelectedRoles({});
     return emitEvent(SOCKET_EVENTS.LEAVE_ROOM);
-  }, [emitEvent]);
+  }, [emitEvent, setSelectedRoles]);
 
   const setRoles = useCallback((roles) => {
-    console.log('🎭 Establecer roles:', roles);
+    console.log('🎭 HOST: Establecer roles:', roles);
+    
+    // 🆕 NUEVO: Actualizar estado local inmediatamente para el host
+    const roleCount = {};
+    roles.forEach(role => {
+      roleCount[role] = (roleCount[role] || 0) + 1;
+    });
+    setSelectedRoles(roleCount);
+    
     return emitEvent(SOCKET_EVENTS.SET_ROLES, { roles });
-  }, [emitEvent]);
+  }, [emitEvent, setSelectedRoles]);
 
   const startGame = useCallback(() => {
     console.log('🎮 Iniciar juego');

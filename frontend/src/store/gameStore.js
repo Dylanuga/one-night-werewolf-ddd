@@ -30,26 +30,19 @@ export const useGameStore = create((set, get) => ({
   playerName: '',
   roomCode: '',
   
-  // 🔧 ACCIONES CORREGIDAS: Funciones estables que no cambian en cada render
-  setConnectionStatus: (connected) => {
-    set({ isConnected: connected });
-  },
+  // 🆕 NUEVO: Estado de roles seleccionados (para sincronización en tiempo real)
+  selectedRoles: {},
   
-  setGameState: (state) => {
-    set({ gameState: state });
-  },
+  // Acciones
+  setConnectionStatus: (connected) => set({ isConnected: connected }),
   
-  setPrivateState: (state) => {
-    set({ privateState: state });
-  },
+  setGameState: (state) => set({ gameState: state }),
   
-  setCurrentTurn: (turn) => {
-    set({ currentTurn: turn });
-  },
+  setPrivateState: (state) => set({ privateState: state }),
   
-  setNightAction: (action) => {
-    set({ nightAction: action });
-  },
+  setCurrentTurn: (turn) => set({ currentTurn: turn }),
+  
+  setNightAction: (action) => set({ nightAction: action }),
   
   setActionResult: (result) => {
     set({ actionResult: result });
@@ -74,21 +67,35 @@ export const useGameStore = create((set, get) => ({
     }));
   },
   
-  clearLogs: () => {
-    set({ logs: [] });
+  clearLogs: () => set({ logs: [] }),
+  
+  setPlayerName: (name) => set({ playerName: name }),
+  
+  setRoomCode: (code) => set({ roomCode: code.toUpperCase() }),
+  
+  // 🆕 NUEVO: Acciones para roles seleccionados
+  setSelectedRoles: (roles) => {
+    console.log('🎭 STORE: Actualizando roles seleccionados:', roles);
+    set({ selectedRoles: roles });
   },
   
-  setPlayerName: (name) => {
-    set({ playerName: name });
+  clearSelectedRoles: () => set({ selectedRoles: {} }),
+  
+  getSelectedRoles: () => {
+    const { selectedRoles } = get();
+    return selectedRoles;
   },
   
-  setRoomCode: (code) => {
-    set({ roomCode: code.toUpperCase() });
+  getSelectedRolesCount: () => {
+    const { selectedRoles } = get();
+    return Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
   },
   
-  // Getters computados - estos SÍ pueden cambiar pero no afectan useSocket
+  // Getters computados
   getCurrentPhase: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState si gameState no está disponible
+    // Esto arregla el problema de que privateState tiene los datos pero gameState es null
     const state = gameState || privateState;
     return state?.phase || 'lobby';
   },
@@ -105,6 +112,7 @@ export const useGameStore = create((set, get) => ({
   
   isHost: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState como fallback
     const state = gameState || privateState;
     if (!state?.players) return false;
     
@@ -118,18 +126,22 @@ export const useGameStore = create((set, get) => ({
   
   getPlayers: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState como fallback
     const state = gameState || privateState;
     return state?.players || [];
   },
   
   getPlayerCount: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState como fallback
     const state = gameState || privateState;
     return state?.player_count || 0;
   },
   
   getRoomCode: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState como fallback para obtener room_code
+    // Esto arregla que el frontend no mostraba el código de sala
     const state = gameState || privateState;
     return state?.room_code || null;
   },
@@ -141,6 +153,7 @@ export const useGameStore = create((set, get) => ({
   
   canStartGame: () => {
     const { gameState, privateState } = get();
+    // CAMBIO: Usar privateState como fallback
     const state = gameState || privateState;
     if (!state) return false;
     
@@ -151,18 +164,30 @@ export const useGameStore = create((set, get) => ({
     );
   },
   
+  // 🆕 NUEVO: Getter para verificar si los roles están completos
+  areRolesComplete: () => {
+    const { selectedRoles, gameState, privateState } = get();
+    const state = gameState || privateState;
+    if (!state) return false;
+    
+    const playerCount = state.player_count || 0;
+    const requiredRoles = playerCount + 3;
+    const totalSelected = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
+    
+    return totalSelected === requiredRoles;
+  },
+  
   // Reset completo del estado
-  reset: () => {
-    set({
-      gameState: null,
-      privateState: null,
-      currentTurn: null,
-      nightAction: null,
-      actionResult: null,
-      error: null,
-      logs: [],
-      playerName: '',
-      roomCode: ''
-    });
-  }
+  reset: () => set({
+    gameState: null,
+    privateState: null,
+    currentTurn: null,
+    nightAction: null,
+    actionResult: null,
+    error: null,
+    logs: [],
+    playerName: '',
+    roomCode: '',
+    selectedRoles: {} // 🆕 NUEVO: También resetear roles
+  })
 }));

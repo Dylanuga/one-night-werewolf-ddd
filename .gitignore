@@ -29,3 +29,7 @@ Thumbs.db
 # Build outputs
 build/
 dist/
+
+# Project specific
+contexto.md
+instrucciones DDD.pdf
