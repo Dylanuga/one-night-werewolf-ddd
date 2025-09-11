@@ -58,7 +58,7 @@ export const RoleSelector = ({ onBack }) => {
     }
   }, [isHost]);
 
-  // 🆕 NUEVO: Debounced sender - solo envía cuando para de cambiar por 500ms
+  // Mejorado: Solo enviar roles cuando la selección esté completa
   const sendRolesToServer = useCallback((roles) => {
     const rolesArray = [];
     Object.entries(roles).forEach(([type, count]) => {
@@ -68,27 +68,43 @@ export const RoleSelector = ({ onBack }) => {
     });
 
     const rolesString = JSON.stringify(rolesArray.sort());
+    const currentTotal = rolesArray.length;
     
-    // 🎯 SOLO ENVIAR SI ES DIFERENTE AL ÚLTIMO ENVIADO
-    if (rolesString !== lastSentRoles && rolesArray.length > 0) {
-      console.log('📤 ENVIANDO ROLES AL SERVIDOR:', rolesArray);
+    // Solo enviar cuando:
+    // 1. El total de roles es exactamente el requerido
+    // 2. Es diferente al último enviado
+    // 3. Hay al menos 1 lobo (werewolf)
+    if (currentTotal === requiredRoles && 
+        rolesString !== lastSentRoles && 
+        rolesArray.includes('werewolf')) {
+      console.log('📤 ENVIANDO ROLES COMPLETOS AL SERVIDOR:', rolesArray);
       setRoles(rolesArray);
       setLastSentRoles(rolesString);
     } else {
-      console.log('⏭️ SKIP: Roles idénticos o vacíos, no enviando');
+      console.log('⏭️ SKIP: Esperando selección completa', {
+        current: currentTotal,
+        required: requiredRoles,
+        hasWerewolf: rolesArray.includes('werewolf')
+      });
     }
-  }, [setRoles, lastSentRoles]);
+  }, [setRoles, lastSentRoles, requiredRoles]);
 
-  // 🆕 NUEVO: Debouncer para evitar spam
+  // Mejorado: Debouncer con validación de roles completos
   useEffect(() => {
     if (!isHost) return;
-
-    const timer = setTimeout(() => {
-      sendRolesToServer(selectedRoles);
-    }, 500); // Esperar 500ms después del último cambio
-
-    return () => clearTimeout(timer);
-  }, [selectedRoles, isHost, sendRolesToServer]);
+    
+    // Solo activar el timer cuando tengamos el total de roles requerido
+    const currentTotal = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
+    const hasWerewolf = selectedRoles.werewolf && selectedRoles.werewolf > 0;
+    
+    if (currentTotal === requiredRoles && hasWerewolf) {
+      const timer = setTimeout(() => {
+        sendRolesToServer(selectedRoles);
+      }, 1000); // Aumentado a 1 segundo para dar más tiempo
+      
+      return () => clearTimeout(timer);
+    }
+  }, [selectedRoles, isHost, sendRolesToServer, requiredRoles]);
 
   const updateRoleCount = (roleType, change) => {
     if (!isHost) return; // Solo el host puede cambiar roles
