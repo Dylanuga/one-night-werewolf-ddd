@@ -6,8 +6,9 @@ import { Lobby } from './components/Lobby';
 import { RoleSelector } from './components/RoleSelector';
 import { NightPhase } from './components/NightPhase';
 import { GameLog } from './components/GameLog';
+import TestingPanel from './components/TestingPanel';
 import { GAME_PHASES } from './utils/constants';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, TestTube } from 'lucide-react';
 
 function App() {
   const {
@@ -23,6 +24,7 @@ function App() {
   const socket = useSocket();
   const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [showTestingPanel, setShowTestingPanel] = useState(false); // 🆕 NUEVO
 
   const currentPhase = getCurrentPhase();
 
@@ -103,6 +105,11 @@ function App() {
 
   const renderCurrentScreen = () => {
     const screen = getScreenForCurrentUser();
+    
+    // 🆕 NUEVO: Si estamos en modo testing, mostrar el panel
+    if (showTestingPanel) {
+      return <TestingPanel onBack={() => setShowTestingPanel(false)} />;
+    }
     
     switch (screen) {
       case 'lobby':
@@ -221,16 +228,30 @@ function App() {
                 </span>
                 {isConnected ? 'Conectado' : 'Desconectado'}
               </div>
+
+              {/* 🆕 NUEVO: Botón de Testing Panel */}
+              <button
+                onClick={() => setShowTestingPanel(!showTestingPanel)}
+                className={`flex items-center gap-2 px-3 py-1 rounded text-sm transition-colors ${
+                  showTestingPanel 
+                    ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                }`}
+                title="Panel de Testing"
+              >
+                <TestTube size={16} />
+                {showTestingPanel ? 'Salir Testing' : 'Testing'}
+              </button>
               
               {/* Fase actual */}
-              {gameState && (
+              {gameState && !showTestingPanel && (
                 <span className="bg-blue-700 text-white px-3 py-1 rounded text-sm">
                   {currentPhase.replace('_', ' ')}
                 </span>
               )}
 
               {/* 🆕 NUEVO: Indicador de rol de usuario */}
-              {gameState && (
+              {gameState && !showTestingPanel && (
                 <span className={`px-3 py-1 rounded text-sm ${
                   isCurrentUserHost 
                     ? 'bg-yellow-600 text-white' 
