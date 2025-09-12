@@ -1,13 +1,13 @@
 // src/App.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { io } from 'socket.io-client';
 import { useGameStore } from './store/gameStore';
-import { useSocket } from './hooks/useSocket';
 import { Lobby } from './components/Lobby';
 import { RoleSelector } from './components/RoleSelector';
 import { NightPhase } from './components/NightPhase';
 import { GameLog } from './components/GameLog';
 import TestingPanel from './components/TestingPanel';
-import { GAME_PHASES } from './utils/constants';
+import { GAME_PHASES, SOCKET_URL, SOCKET_EVENTS } from './utils/constants';
 import { AlertCircle, TestTube } from 'lucide-react';
 
 function App() {
@@ -18,15 +18,201 @@ function App() {
     error,
     isConnected,
     getCurrentPhase,
-    reset
+    reset,
+    // Nuevas funciones del store
+    setSocket,
+    setConnectionStatus,
+    setGameState,
+    setPrivateState,
+    setCurrentTurn,
+    setNightAction,
+    setActionResult,
+    setError,
+    addLog,
+    setSelectedRoles
   } = useGameStore();
 
-  const socket = useSocket();
+  const socketRef = useRef(null);
+  const isInitializedRef = useRef(false);
+  
   const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [showError, setShowError] = useState(false);
-  const [showTestingPanel, setShowTestingPanel] = useState(false); // 🆕 NUEVO
+  const [showTestingPanel, setShowTestingPanel] = useState(false);
 
   const currentPhase = getCurrentPhase();
+
+  // 🔧 NUEVA LÓGICA: Inicialización centralizada del socket
+  useEffect(() => {
+    console.log('🔧 App - Inicializando socket centralizado');
+
+    // Prevenir múltiples inicializaciones
+    if (isInitializedRef.current) {
+      console.log('✅ Socket ya inicializado, saltando');
+      return;
+    }
+
+    // Si ya hay socket conectado, solo actualizar estado
+    if (socketRef.current?.connected) {
+      console.log('✅ Socket ya conectado, actualizando estado');
+      setConnectionStatus(true);
+      return;
+    }
+
+    console.log('🔌 Creando nueva conexión socket...');
+    isInitializedRef.current = true;
+    
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      forceNew: false
+    });
+
+    const socket = socketRef.current;
+    setSocket(socket); // Guardar la instancia en el store
+
+    // Eventos básicos de conexión
+    socket.on('connect', () => {
+      console.log('🔗 SOCKET CONECTADO:', socket.id);
+      setConnectionStatus(true);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('❌ SOCKET DESCONECTADO:', reason);
+      setConnectionStatus(false);
+      
+      // Log específico para diferentes tipos de desconexión
+      if (reason === 'io server disconnect') {
+        console.log('⚠️ Servidor desconectó el cliente - posible reinicio');
+      } else if (reason === 'io client disconnect') {
+        console.log('⚠️ Cliente desconectó deliberadamente');
+      } else if (reason === 'ping timeout') {
+        console.log('⚠️ Timeout de ping - problemas de red');
+      } else if (reason === 'transport close') {
+        console.log('⚠️ Transporte cerrado - problemas de conexión');
+      } else if (reason === 'transport error') {
+        console.log('⚠️ Error de transporte');
+      }
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 SOCKET RECONECTADO después de', attemptNumber, 'intentos');
+      setConnectionStatus(true);
+      addLog(`Reconectado tras ${attemptNumber} intentos`);
+    });
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('🔄 Intento de reconexión #', attemptNumber);
+    });
+
+    socket.on('reconnect_error', (error) => {
+      console.error('❌ Error de reconexión:', error);
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('💀 Falló la reconexión definitivamente');
+      setError('No se pudo reconectar al servidor');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('🔴 ERROR DE CONEXIÓN:', error);
+      setConnectionStatus(false);
+    });
+
+    // Eventos del servidor
+    socket.on(SOCKET_EVENTS.CONNECTED, (data) => {
+      console.log('✅ Conexión confirmada:', data.socket_id);
+    });
+
+    // Eventos de sala
+    socket.on(SOCKET_EVENTS.ROOM_CREATED, (data) => {
+      console.log('🏠 Sala creada:', data.room_code);
+      addLog(`Sala ${data.room_code} creada`);
+    });
+
+    socket.on(SOCKET_EVENTS.ROOM_JOINED, (data) => {
+      console.log('🚪 Te uniste a la sala:', data.room_code);
+      addLog(`Te uniste a la sala ${data.room_code}`);
+    });
+
+    socket.on(SOCKET_EVENTS.ROOM_LEFT, () => {
+      console.log('👋 Saliste de la sala');
+      addLog('Saliste de la sala');
+      setGameState(null);
+      setPrivateState(null);
+      setSelectedRoles({});
+    });
+
+    // Eventos de juego
+    socket.on(SOCKET_EVENTS.ROLES_SET, (data) => {
+      console.log('🎭 ROLES ESTABLECIDOS:', data.roles);
+      
+      const roleCount = {};
+      data.roles.forEach(role => {
+        roleCount[role] = (roleCount[role] || 0) + 1;
+      });
+      
+      setSelectedRoles(roleCount);
+      addLog(`Host seleccionó ${data.roles.length} roles`);
+    });
+
+    socket.on(SOCKET_EVENTS.GAME_STARTED, (data) => {
+      console.log('🎮 Juego iniciado:', data);
+      addLog('¡El juego ha comenzado!');
+    });
+
+    socket.on(SOCKET_EVENTS.GAME_UPDATE, (data) => {
+      console.log('🔄 Actualización del juego:', data);
+      setGameState(data);
+    });
+
+    socket.on(SOCKET_EVENTS.PRIVATE_UPDATE, (data) => {
+      console.log('🔐 Actualización privada:', data);
+      setPrivateState(data);
+      setGameState(data);
+    });
+
+    socket.on(SOCKET_EVENTS.TURN_START, (data) => {
+      console.log('⏰ Inicio de turno:', data);
+      setCurrentTurn(data);
+      addLog(`--- Fase: ${data.role} ---`);
+    });
+
+    socket.on(SOCKET_EVENTS.NIGHT_ACTION, (data) => {
+      console.log('🌙 Acción nocturna disponible:', data);
+      setNightAction(data);
+    });
+
+    socket.on(SOCKET_EVENTS.ACTION_RESULT, (data) => {
+      console.log('✨ Resultado de acción:', data);
+      setActionResult(data);
+    });
+
+    socket.on(SOCKET_EVENTS.GAME_STATE, (data) => {
+      console.log('📊 Estado del juego:', data);
+      setGameState(data);
+    });
+
+    socket.on(SOCKET_EVENTS.ERROR, (data) => {
+      console.error('❌ Error del servidor:', data.message);
+      setError(data.message);
+    });
+
+    // Cleanup SOLO al desmontar el componente App
+    return () => {
+      console.log('🧹 CLEANUP App - Desmontando aplicación');
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+      isInitializedRef.current = false;
+    };
+  }, []); // SIN dependencias - solo se ejecuta una vez al montar App
 
   // 🔧 NUEVA LÓGICA: Determinar si el usuario actual es host
   const players = gameState?.players || [];

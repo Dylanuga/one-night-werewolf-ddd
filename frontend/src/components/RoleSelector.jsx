@@ -2,12 +2,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Crown, Play, ArrowLeft, Plus, Minus, Eye, Users, Clock, CheckCircle } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useSocket } from '../hooks/useSocket';
 import { ROLES } from '../utils/constants';
 
 export const RoleSelector = ({ onBack }) => {
-  const { gameState, error } = useGameStore();
-  const { setRoles, startGame } = useSocket();
+  const { 
+    gameState, 
+    error,
+    isConnected,
+    // Usar las funciones del store en lugar del hook
+    setRoles,
+    startGame
+  } = useGameStore();
   
   const [selectedRoles, setSelectedRoles] = useState({});
   const [isStarting, setIsStarting] = useState(false);
@@ -23,9 +28,6 @@ export const RoleSelector = ({ onBack }) => {
   // Calcular total de roles seleccionados
   const totalSelected = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
 
-  // 🔧 NUEVO: Escuchar cambios de roles del servidor usando useSocket
-  const { isConnected } = useSocket();
-  
   useEffect(() => {
     const handleRolesSet = (data) => {
       console.log('🔧 ROLES RECIBIDOS DEL SERVIDOR:', data.roles);

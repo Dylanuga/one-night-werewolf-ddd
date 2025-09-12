@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Crown, Play, LogOut, UserPlus, Copy, Eye, Clock, CheckCircle, Settings } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useSocket } from '../hooks/useSocket';
 import { MAX_PLAYERS, ROLES } from '../utils/constants';
 
 export const Lobby = ({ onNext, showRoleSelection = false }) => {
@@ -14,10 +13,13 @@ export const Lobby = ({ onNext, showRoleSelection = false }) => {
     setRoomCode,
     error,
     selectedRoles,
-    areRolesComplete
+    areRolesComplete,
+    isConnected,
+    // Usar las funciones del store en lugar del hook
+    createRoom,
+    joinRoom,
+    leaveRoom
   } = useGameStore();
-
-  const { createRoom, joinRoom, leaveRoom, isConnected } = useSocket();
 
   const players = gameState?.players || [];
   const currentRoomCode = gameState?.room_code;

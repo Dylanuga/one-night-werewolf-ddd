@@ -566,3 +566,35 @@ class GameService:
                     
         except Exception as e:
             print(f"❌ Error en _emit_mason_turn_data: {e}")
+
+    def get_private_state(self, room_code: str, player_id: str) -> Optional[Dict[str, Any]]:
+        """Obtiene el estado privado de un jugador específico"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game or player_id not in game.players:
+                return None
+            
+            # Obtener el estado privado base
+            private_state = game.get_private_state_for_player(player_id)
+            
+            # Si el juego está en fase nocturna, añadir información del turno actual
+            if game.phase == GamePhase.NIGHT_PHASE:
+                current_turn_role = game.get_current_turn_role()
+                if current_turn_role:
+                    private_state['current_turn_role'] = current_turn_role
+                    
+                    # Verificar si es el turno del jugador
+                    player_role = game.players[player_id].get_role_name()
+                    private_state['is_your_turn'] = (player_role == current_turn_role)
+                    
+                    # Si es su turno, incluir night_action data si está disponible
+                    if private_state['is_your_turn']:
+                        night_action_data = game.get_night_action_for_role(current_turn_role, player_id)
+                        if night_action_data:
+                            private_state['night_action'] = night_action_data
+            
+            return private_state
+            
+        except Exception as e:
+            print(f"Error en get_private_state: {e}")
+            return None

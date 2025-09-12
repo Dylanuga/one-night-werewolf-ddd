@@ -1,9 +1,9 @@
 // src/components/night-phases/WerewolfPhase.jsx
 import React, { useState, useEffect } from 'react';
-import { useSocket } from '../../hooks/useSocket';
+import { useGameStore } from '../../store/gameStore';
 
 export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction } = useSocket();
+  const { executeNightAction } = useGameStore();
   const [hasActed, setHasActed] = useState(false);
 
   // Resetear hasActed cuando no es mi turno

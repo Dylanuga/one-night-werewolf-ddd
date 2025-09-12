@@ -167,7 +167,16 @@ def create_test_room():
         print(f"❌ Error en create_test_room: {e}")
         return {'error': str(e)}, 500
 CORS(app, origins=["http://localhost:3000"])
-socketio = SocketIO(app, cors_allowed_origins="http://localhost:3000", async_mode='eventlet', logger=False, engineio_logger=False)
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="http://localhost:3000", 
+    async_mode='eventlet', 
+    logger=False, 
+    engineio_logger=False,
+    ping_timeout=60,         # ✅ Timeout más largo para pings
+    ping_interval=25,        # ✅ Intervalo de ping más frecuente
+    transports=['websocket', 'polling']  # ✅ Permitir ambos transportes
+)
 
 # Inicializar dependencias
 room_repository = RoomRepository()
@@ -212,11 +221,46 @@ def find_existing_player_in_room(room_code: str, player_name: str) -> str:
         print(f"Error buscando jugador existente: {e}")
         return None
 
+def recover_player_by_socket_or_host(request_sid: str) -> tuple:
+    """
+    Intenta recuperar un player_id basado en el socket_id o asumiendo que es el host.
+    Retorna (player_id, room_code) o (None, None) si no se puede recuperar.
+    """
+    try:
+        print(f"🔍 Buscando en {len(room_repository.get_all_rooms())} salas...")
+        for room_code in room_repository.get_all_rooms():
+            game = room_repository.get_game(room_code)
+            if game:
+                print(f"🔍 Revisando sala {room_code} con {len(game.players)} jugadores...")
+                for player_id, player in game.players.items():
+                    print(f"🔍   - Jugador {player_id}: socket_id={getattr(player, 'socket_id', 'NONE')}, is_host={player.is_host}")
+                    
+                    # Estrategia 1: Coincidencia exacta de socket_id
+                    if hasattr(player, 'socket_id') and player.socket_id == request_sid:
+                        print(f"🔧 RECUPERADO POR SOCKET: {player_id} en sala {room_code}")
+                        return player_id, room_code
+                    
+                    # Estrategia 2: Si es host y no hay socket_id válido, asumir reconexión
+                    if player.is_host and (not hasattr(player, 'socket_id') or player.socket_id != request_sid):
+                        print(f"🔧 CANDIDATO HOST ENCONTRADO: {player_id} ({player.name}) en sala {room_code}")
+                        # Actualizar su socket_id
+                        player.socket_id = request_sid
+                        room_repository.save_game(room_code, game)
+                        print(f"🔧 RECUPERADO POR HOST: {player_id} actualizado con nuevo socket {request_sid}")
+                        return player_id, room_code
+        
+        return None, None
+    except Exception as e:
+        print(f"❌ Error en recuperación: {e}")
+        return None, None
+
 @socketio.on('connect')
 def on_connect():
     """Un cliente se conecta"""
     try:
         print(f"Cliente conectado: {request.sid}")
+        print(f"🔍 connected_players actual: {connected_players}")
+        print(f"🔍 Total conexiones: {len(connected_players)}")
         emit('connected', {'socket_id': request.sid})
     except Exception as e:
         print(f"Error en connect: {e}")
@@ -240,9 +284,13 @@ def on_disconnect():
                 if game and player_id in game.players:
                     game.players[player_id].disconnect()
                     room_repository.save_game(room_code, game)
-                    print(f"🔧 Jugador {player_id} marcado como desconectado")
+                    print(f"🔧 Jugador {player_id} marcado como desconectado (TEMPORAL)")
             
-            del connected_players[request.sid]
+            # NO eliminar el mapeo inmediatamente - esperar un poco por si se reconecta
+            # del connected_players[request.sid]  # ❌ NO hacer esto aún
+            print(f"🔧 Mapeo mantenido temporalmente para posible reconexión")
+        else:
+            print(f"🔧 Socket desconectado no estaba en connected_players: {request.sid}")
             
     except Exception as e:
         print(f"Error en disconnect: {e}")
@@ -315,7 +363,13 @@ def on_join_room(data):
                 join_room(room_code)
                 emit('room_joined', {'room_code': room_code})
                 
-                # Forzar actualización del estado
+                # 🎯 CRÍTICO: Enviar estado privado al jugador reconectado
+                private_state = game_service.get_private_state(room_code, player_id)
+                if private_state:
+                    print(f"🔧 ENVIANDO ESTADO PRIVADO A JUGADOR RECONECTADO: {player_id}")
+                    emit('private_update', private_state)
+                
+                # Forzar actualización del estado público
                 game_service._emit_game_update(room_code)
             else:
                 emit('error', {'message': 'Error en la reconexión'})
@@ -374,6 +428,7 @@ def on_set_roles(data):
         print(f"🔧 SET_ROLES - SISTEMA FIJO:")
         print(f"   request.sid: {request.sid}")
         print(f"   roles: {roles}")
+        print(f"   connected_players actual: {connected_players}")
         
         if not roles:
             emit('error', {'message': 'Debe seleccionar roles'})
@@ -381,8 +436,18 @@ def on_set_roles(data):
         
         if request.sid not in connected_players:
             print(f"❌ ERROR: Socket ID no encontrado en connected_players")
-            emit('error', {'message': 'No estás en ninguna sala'})
-            return
+            print(f"🔍 DEBUGGING - Intentando recuperar player_id por socket...")
+            
+            # Usar función auxiliar para recuperar
+            recovered_player_id, recovered_room_code = recover_player_by_socket_or_host(request.sid)
+            
+            if recovered_player_id:
+                connected_players[request.sid] = recovered_player_id
+                print(f"✅ MAPEO RESTAURADO: {request.sid} -> {recovered_player_id}")
+            else:
+                print(f"❌ No se pudo recuperar ningún jugador para socket {request.sid}")
+                emit('error', {'message': 'No estás en ninguna sala'})
+                return
         
         player_id = connected_players[request.sid]
         room_code = game_service.get_player_room(player_id)
@@ -431,10 +496,22 @@ def on_start_game(data=None):
     try:
         print(f"🔧 START_GAME - SISTEMA FIJO:")
         print(f"   request.sid: {request.sid}")
+        print(f"   connected_players actual: {connected_players}")
         
         if request.sid not in connected_players:
-            emit('error', {'message': 'No estás en ninguna sala'})
-            return
+            print(f"❌ ERROR: Socket ID no encontrado en connected_players")
+            print(f"🔍 DEBUGGING - Intentando recuperar player_id por socket...")
+            
+            # Usar función auxiliar para recuperar
+            recovered_player_id, recovered_room_code = recover_player_by_socket_or_host(request.sid)
+            
+            if recovered_player_id:
+                connected_players[request.sid] = recovered_player_id
+                print(f"✅ MAPEO RESTAURADO: {request.sid} -> {recovered_player_id}")
+            else:
+                print(f"❌ No se pudo recuperar ningún jugador para socket {request.sid}")
+                emit('error', {'message': 'No estás en ninguna sala'})
+                return
         
         player_id = connected_players[request.sid]
         room_code = game_service.get_player_room(player_id)
@@ -538,9 +615,27 @@ def debug_rooms():
 def debug_connections():
     """Endpoint de debug"""
     try:
+        # También obtener información de los sockets reales en los juegos
+        socket_mappings_in_games = {}
+        
+        for room_code in room_repository.get_all_rooms():
+            game = room_repository.get_game(room_code)
+            if game:
+                for player_id, player in game.players.items():
+                    if hasattr(player, 'socket_id'):
+                        socket_mappings_in_games[player.socket_id] = {
+                            'player_id': player_id,
+                            'player_name': player.name,
+                            'room_code': room_code,
+                            'is_connected': player.is_connected,
+                            'is_host': player.is_host
+                        }
+        
         return {
             'connected_players': connected_players,
-            'total_connections': len(connected_players)
+            'total_connections': len(connected_players),
+            'socket_mappings_in_games': socket_mappings_in_games,
+            'mismatch_count': len(set(connected_players.keys()) - set(socket_mappings_in_games.keys()))
         }
     except Exception as e:
         return {'error': str(e)}, 500

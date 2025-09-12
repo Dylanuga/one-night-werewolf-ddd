@@ -2,8 +2,9 @@
 import { create } from 'zustand';
 
 export const useGameStore = create((set, get) => ({
-  // Estado de conexión
+  // Estado de conexión y socket
   isConnected: false,
+  socket: null,
   
   // Estado del juego público
   gameState: null,
@@ -34,6 +35,8 @@ export const useGameStore = create((set, get) => ({
   selectedRoles: {},
   
   // Acciones
+  setSocket: (socket) => set({ socket }),
+  
   setConnectionStatus: (connected) => set({ isConnected: connected }),
   
   setGameState: (state) => set({ gameState: state }),
@@ -175,6 +178,59 @@ export const useGameStore = create((set, get) => ({
     const totalSelected = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
     
     return totalSelected === requiredRoles;
+  },
+  
+  // 🆕 NUEVO: Funciones de emisión de eventos a través del socket centralizado
+  emitEvent: (event, data = {}) => {
+    const { socket } = get();
+    if (socket?.connected) {
+      console.log('📤 Emitiendo:', event, data);
+      socket.emit(event, data);
+      return true;
+    }
+    console.warn('❌ Socket no conectado para:', event);
+    return false;
+  },
+  
+  createRoom: (name) => {
+    const { emitEvent } = get();
+    return emitEvent('create_room', { name });
+  },
+  
+  joinRoom: (roomCode, name) => {
+    const { emitEvent } = get();
+    return emitEvent('join_room', { room_code: roomCode, name });
+  },
+  
+  leaveRoom: () => {
+    const { emitEvent, setSelectedRoles } = get();
+    setSelectedRoles({});
+    return emitEvent('leave_room');
+  },
+  
+  setRoles: (roles) => {
+    const { emitEvent, setSelectedRoles } = get();
+    const roleCount = {};
+    roles.forEach(role => {
+      roleCount[role] = (roleCount[role] || 0) + 1;
+    });
+    setSelectedRoles(roleCount);
+    return emitEvent('set_roles', { roles });
+  },
+  
+  startGame: () => {
+    const { emitEvent } = get();
+    return emitEvent('start_game');
+  },
+  
+  executeNightAction: (action) => {
+    const { emitEvent } = get();
+    return emitEvent('night_action', { action });
+  },
+  
+  getGameState: () => {
+    const { emitEvent } = get();
+    return emitEvent('get_game_state');
   },
   
   // Reset completo del estado
