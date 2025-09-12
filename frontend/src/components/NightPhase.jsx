@@ -1,263 +1,37 @@
 // src/components/NightPhase.jsx
-import React, { useState, useEffect } from 'react';
-import { Eye, Clock } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Eye } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useSocket } from '../hooks/useSocket';
-import { ROLES, TURN_DURATION } from '../utils/constants';
+import { ROLES } from '../utils/constants';
+import { 
+  PhaseTimer, 
+  WerewolfPhase, 
+  MasonPhase, 
+  GenericPhase, 
+  ActionResult 
+} from './night-phases';
 
 export const NightPhase = () => {
   const {
     gameState,
     privateState,
-    currentTurn,
     nightAction,
     setNightAction,
     actionResult
   } = useGameStore();
-
-  const { executeNightAction } = useSocket();
-  
-  const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
-  const [hasActed, setHasActed] = useState(false);
 
   // 🔧 FIX: Obtener datos del privateState en lugar de usar currentTurn
   const myRole = privateState?.your_role;
   const currentTurnRole = privateState?.current_turn_role;
   const isMyTurn = privateState?.is_your_turn;
   const nightActionData = privateState?.night_action;
+
   // Limpiar nightAction cuando deja de ser tu turno
   useEffect(() => {
     if (!isMyTurn && nightAction) {
       setNightAction(null);
     }
   }, [isMyTurn, nightAction, setNightAction]);
-
-  console.log('🔧 NIGHTPHASE DEBUG:', {
-    myRole,
-    currentTurnRole,
-    isMyTurn,
-    nightActionData,
-    privateState: !!privateState
-  });
-
-  // Timer countdown
-  useEffect(() => {
-    if (currentTurnRole) {
-      setTimeLeft(TURN_DURATION);
-      setHasActed(false);
-      
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [currentTurnRole]);
-
-  const handleCenterCardClick = (position) => {
-    if (!isMyTurn || hasActed) return;
-    
-    executeNightAction({ center_position: position });
-    setHasActed(true);
-  };
-
-  const renderMasonAction = () => {
-    if (!isMyTurn) {
-      // Mostrar info del turno actual aunque no seas mason
-      return (
-        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Turno: Masón</h3>
-          <p className="text-cyan-200 mb-2">Los masones se reconocen entre sí.</p>
-          <p className="text-cyan-300 text-sm">Si están solos, observan en silencio.</p>
-          {nightActionData?.message && (
-            <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
-          )}
-        </div>
-      );
-    }
-    if (!nightActionData) {
-      console.log('🔧 NO HAY nightActionData para mason');
-      return (
-        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Masón</h3>
-          <p className="text-white">Esperando datos del servidor...</p>
-        </div>
-      );
-    }
-
-    console.log('🔧 RENDERIZANDO MASON ACTION:', nightActionData);
-
-    // Caso A: Mostrar el otro masón
-    if (nightActionData.type === 'show_other_mason') {
-      return (
-        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-cyan-400 mb-4">
-            🔨 Otros Masones
-          </h3>
-          <p className="text-white text-lg mb-4">
-            {nightActionData.message}
-          </p>
-          <div className="bg-cyan-800/50 rounded-lg p-4 mt-4">
-            <p className="text-cyan-200 font-bold text-2xl">
-              🔨 {nightActionData.other_mason_name}
-            </p>
-            <p className="text-cyan-300 text-sm mt-2">Es tu compañero masón</p>
-          </div>
-          <p className="text-cyan-200 text-sm mt-4">
-            ¡Ambos conocéis vuestra identidad!
-          </p>
-        </div>
-      );
-    }
-
-    // Caso B: Masón solo (el otro está en el centro)
-    if (nightActionData.type === 'alone') {
-      return (
-        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-cyan-400 mb-4">
-            🔨 Masón Solitario
-          </h3>
-          <p className="text-white text-lg mb-4">
-            {nightActionData.message}
-          </p>
-          <div className="bg-slate-800/50 rounded-lg p-4 mt-4">
-            <p className="text-slate-300 text-lg">😔 Estás solo</p>
-            <p className="text-slate-400 text-sm mt-2">
-              Tu compañero masón no está en juego (está en el centro)
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    console.log('🔧 TIPO DE ACTION MASON NO RECONOCIDO:', nightActionData.type);
-    return (
-      <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Masón</h3>
-        <p className="text-white">Tipo de acción no reconocido: {nightActionData.type}</p>
-      </div>
-    );
-  };
-
-  const renderWerewolfAction = () => {
-    if (!isMyTurn) {
-      // Mostrar info del turno actual aunque no seas lobo
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Turno: Lobos</h3>
-          <p className="text-red-200 mb-2">Los lobos se reconocen entre sí.</p>
-          <p className="text-red-300 text-sm">Si está solo, puede ver una carta del centro.</p>
-          {nightActionData?.message && (
-            <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
-          )}
-        </div>
-      );
-    }
-    if (!nightActionData) {
-      console.log('🔧 NO HAY nightActionData');
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
-          <p className="text-white">Esperando datos del servidor...</p>
-        </div>
-      );
-    }
-
-    console.log('🔧 RENDERIZANDO WEREWOLF ACTION:', nightActionData);
-
-    // Caso A: Mostrar el otro lobo
-    if (nightActionData.type === 'show_other_werewolf') {
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-400 mb-4">
-            🐺 Otros Lobos
-          </h3>
-          <p className="text-white text-lg mb-4">
-            {nightActionData.message}
-          </p>
-          <div className="bg-red-800/50 rounded-lg p-4 mt-4">
-            <p className="text-red-200 font-bold text-2xl">
-              🐺 {nightActionData.other_werewolf_name}
-            </p>
-            <p className="text-red-300 text-sm mt-2">Es tu compañero lobo</p>
-          </div>
-          <p className="text-red-200 text-sm mt-4">
-            ¡Ambos conocéis vuestra identidad!
-          </p>
-        </div>
-      );
-    }
-
-    // Caso B: Elegir carta del centro
-    if (nightActionData.type === 'can_view_center') {
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6">
-          <h3 className="text-xl font-bold text-red-400 mb-4 text-center">
-            🐺 Eres el único lobo
-          </h3>
-          <p className="text-white text-center mb-6">
-            {nightActionData.message}
-          </p>
-          
-          <div className="grid grid-cols-3 gap-4">
-            {[0, 1, 2].map(position => (
-              <button
-                key={position}
-                onClick={() => handleCenterCardClick(position)}
-                disabled={hasActed}
-                className={`
-                  bg-slate-700 hover:bg-slate-600 disabled:opacity-50 
-                  border-2 border-yellow-500 rounded-lg p-4 transition-all duration-200
-                  ${hasActed ? 'cursor-not-allowed' : 'hover:border-yellow-400'}
-                `}
-              >
-                <div className="text-4xl mb-2">🃏</div>
-                <p className="text-white font-bold">Carta {position + 1}</p>
-              </button>
-            ))}
-          </div>
-          
-          {hasActed && actionResult && (
-            <div className="bg-green-900/30 border border-green-500 rounded-lg p-4 mt-4">
-              <p className="text-green-400 text-center font-bold">
-                ✓ {actionResult.message || 'Has elegido una carta'}
-              </p>
-              {actionResult.center_role && (
-                <p className="text-white text-center mt-2">
-                  🃏 Has visto: <span className="font-bold text-yellow-400">{actionResult.center_role}</span>
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    console.log('🔧 TIPO DE ACTION NO RECONOCIDO:', nightActionData.type);
-    return (
-      <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
-        <p className="text-white">Tipo de acción no reconocido: {nightActionData.type}</p>
-      </div>
-    );
-  };
-
-  const renderActionResult = () => {
-    if (!actionResult || !actionResult.success) return null;
-
-    return (
-      <div className="bg-green-900/30 border border-green-500 rounded-lg p-4 mt-4">
-        <h4 className="text-green-400 font-bold mb-2">Resultado:</h4>
-        <p className="text-white">{actionResult.message}</p>
-      </div>
-    );
-  };
 
   const renderCurrentPhaseInfo = () => {
     if (!currentTurnRole) {
@@ -269,11 +43,10 @@ export const NightPhase = () => {
     }
 
     const roleInfo = ROLES[currentTurnRole];
-    const isMyRoleTurn = isMyTurn;
 
     return (
       <div className={`rounded-lg p-6 border ${
-        isMyRoleTurn 
+        isMyTurn 
           ? 'bg-yellow-900/30 border-yellow-500' 
           : 'bg-slate-800 border-slate-600'
       }`}>
@@ -284,47 +57,42 @@ export const NightPhase = () => {
               <h3 className="text-xl font-bold text-white">
                 Fase: {currentTurnRole}
               </h3>
-              {isMyRoleTurn && (
+              {isMyTurn && (
                 <p className="text-yellow-400 font-medium">¡Es tu turno!</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 text-white">
-            <Clock size={20} />
-            <span className="font-bold text-lg">{timeLeft}s</span>
-          </div>
+          <PhaseTimer currentTurnRole={currentTurnRole} isMyTurn={isMyTurn} />
         </div>
 
         {roleInfo && (
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {/* Mostrar acción del rol activo para todos */}
-        {currentTurnRole === 'werewolf' && renderWerewolfAction()}
-        {currentTurnRole === 'mason' && renderMasonAction()}
-        {actionResult && renderActionResult()}
-        
-        {/* Renderizar información de otros roles */}
-        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && renderGenericRoleAction()}
-      </div>
-    );
-  };
-
-  const renderGenericRoleAction = () => {
-    const roleInfo = ROLES[currentTurnRole];
-    if (!roleInfo) return null;
-
-    return (
-      <div className="bg-slate-700/50 border border-slate-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-white mb-4">
-          {roleInfo.emoji} Turno: {roleInfo.name}
-        </h3>
-        <p className="text-slate-300 mb-2">{roleInfo.description}</p>
-        {isMyTurn ? (
-          <p className="text-yellow-400 font-medium">¡Es tu turno! Actúa según tu rol.</p>
-        ) : (
-          <p className="text-slate-400">Esperando a que complete su turno...</p>
+        {/* Renderizar componente específico según el rol */}
+        {currentTurnRole === 'werewolf' && (
+          <WerewolfPhase 
+            isMyTurn={isMyTurn} 
+            nightActionData={nightActionData} 
+            actionResult={actionResult} 
+          />
         )}
+        
+        {currentTurnRole === 'mason' && (
+          <MasonPhase 
+            isMyTurn={isMyTurn} 
+            nightActionData={nightActionData} 
+          />
+        )}
+        
+        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && (
+          <GenericPhase 
+            currentTurnRole={currentTurnRole} 
+            isMyTurn={isMyTurn} 
+          />
+        )}
+
+        <ActionResult actionResult={actionResult} />
       </div>
     );
   };
@@ -370,7 +138,7 @@ export const NightPhase = () => {
           </h4>
           <div className="text-slate-300 text-sm space-y-1">
             {isMyTurn ? (
-              <p>🎯 Es tu turno. Tienes {timeLeft} segundos para actuar.</p>
+              <p>🎯 Es tu turno.</p>
             ) : (
               <p>⏱️ Esperando turno de: {currentTurnRole}</p>
             )}
