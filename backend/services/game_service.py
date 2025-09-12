@@ -315,21 +315,35 @@ class GameService:
             print(f"Error en _emit_game_update: {e}")
 
     def _emit_turn_start(self, room_code: str, role: str):
-        """🔧 FIX: Emite el evento de inicio de turno"""
+        """🔧 FIX MEJORADO: Emite el evento de inicio de turno de manera robusta"""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
+                print(f"❌ No se encontró juego para emitir turn_start: {room_code}")
                 return
             
             # Emitir a toda la sala que comenzó el turno de un rol
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
-                'duration': self.TURN_DURATION
+                'duration': self.TURN_DURATION,
+                'timestamp': time.time()  # Añadir timestamp para identificar el evento
             }
             
             print(f"🔧 EMITIENDO TURN_START: {turn_data}")
+            
+            # Emitir a toda la sala
             self.emit_callback('turn_start', turn_data, room=room_code)
+            
+            # Además, asegurarnos de que cada jugador reciba la actualización
+            # directamente, como respaldo en caso de problemas de broadcast
+            for player_id, player in game.players.items():
+                if player.socket_id:
+                    try:
+                        print(f"🔄 Enviando turn_start directo a: {player_id}")
+                        self.emit_callback('turn_start', turn_data, room=player.socket_id)
+                    except Exception as e:
+                        print(f"⚠️ Error enviando turn_start a {player_id}: {str(e)}")
             
         except Exception as e:
             print(f"Error en _emit_turn_start: {e}")
@@ -455,20 +469,41 @@ class GameService:
             return False
 
     def _start_turn_timer(self, room_code: str):
-        """🔧 FIX: Inicia un timer que avanza automáticamente el turno después de 6 segundos"""
+        """🔧 FIX MEJORADO: Inicia un timer que avanza automáticamente el turno después de 6 segundos"""
         try:
+            # Verificar si el juego sigue activo y en fase nocturna
+            game = self.room_repository.get_game(room_code)
+            if not game or game.phase != GamePhase.NIGHT_PHASE:
+                print(f"⚠️ No se inicia timer: Sala {room_code} no válida o no en night_phase")
+                return
+            
+            # Verificar si hay un rol actual válido
+            current_role = game.get_current_turn_role()
+            if not current_role:
+                print(f"⚠️ No se inicia timer: No hay rol actual en sala {room_code}")
+                return
+                
             # Cancelar timer anterior si existe
             self._cancel_turn_timer(room_code)
             
-            # Crear nuevo timer
+            # Crear nuevo timer con mayor robustez
             timer = threading.Timer(self.TURN_DURATION, self._auto_advance_turn, [room_code])
+            timer.daemon = True  # Asegurar que el timer no bloquee la salida del programa
             timer.start()
             self.turn_timers[room_code] = timer
             
-            print(f"🔧 TIMER INICIADO: {self.TURN_DURATION}s para sala {room_code}")
+            print(f"🔧 TIMER INICIADO: {self.TURN_DURATION}s para sala {room_code}, rol {current_role}")
+            
+            # Registrar un log con el momento exacto del inicio del timer
+            start_time = time.strftime("%H:%M:%S", time.localtime())
+            expected_end = time.strftime("%H:%M:%S", 
+                                         time.localtime(time.time() + self.TURN_DURATION))
+            print(f"⏱️ Timer iniciado a las {start_time}, terminará a las {expected_end}")
             
         except Exception as e:
-            print(f"Error iniciando timer para {room_code}: {e}")
+            print(f"🔴 ERROR iniciando timer para {room_code}: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def _cancel_turn_timer(self, room_code: str):
         """🔧 FIX: Cancela el timer de turno para una sala"""
@@ -479,46 +514,113 @@ class GameService:
                 del self.turn_timers[room_code]
                 print(f"🔧 TIMER CANCELADO para sala {room_code}")
         except Exception as e:
-            print(f"Error cancelando timer para {room_code}: {e}")
+            print(f"🔴 ERROR cancelando timer para {room_code}: {str(e)}")
+            # Intentar limpiar el timer incluso si falla la cancelación
+            if room_code in self.turn_timers:
+                del self.turn_timers[room_code]
 
     def _auto_advance_turn(self, room_code: str):
-        """🔧 FIX: Avanza automáticamente al siguiente turno cuando expira el timer"""
+        """🔧 FIX MEJORADO: Avanza automáticamente al siguiente turno cuando expira el timer"""
         try:
             print(f"🔧 AUTO-AVANZANDO TURNO para sala {room_code}")
             
+            # Limpiar el timer actual de la lista de timers activos
+            if room_code in self.turn_timers:
+                del self.turn_timers[room_code]
+            
             game = self.room_repository.get_game(room_code)
-            if not game or game.phase != GamePhase.NIGHT_PHASE:
-                print(f"🔧 Sala {room_code} no válida o no en night_phase")
+            if not game:
+                print(f"❌ Sala {room_code} no encontrada")
                 return
+                
+            if game.phase != GamePhase.NIGHT_PHASE:
+                print(f"⚠️ Sala {room_code} no está en fase nocturna: {game.phase}")
+                return
+            
+            # Registrar el turno actual antes de avanzar (para debugging)
+            current_role_before = game.get_current_turn_role()
+            print(f"🔄 Avanzando desde rol: {current_role_before}, turno {game.current_turn_index}/{len(game.night_turns)}")
             
             # Avanzar al siguiente turno
             advanced = game.advance_night_turn()
-            if advanced:
-                self.room_repository.save_game(room_code, game)
+            
+            # Guardar el estado actualizado del juego incluso si no avanzó
+            # (podría haber cambios de estado internos)
+            self.room_repository.save_game(room_code, game)
+            
+            if not advanced:
+                print(f"⚠️ No se pudo avanzar el turno en sala {room_code}")
+                return
                 
-                # Verificar si la noche terminó
-                if game.phase == GamePhase.DAY_PHASE:
-                    print(f"🔧 NOCHE TERMINADA - AVANZANDO A FASE DE DÍA")
-                    self._advance_to_day_phase(room_code)
-                else:
-                    # Continuar con el siguiente turno
-                    print(f"🔧 CONTINUANDO CON SIGUIENTE TURNO")
-                    self._emit_game_update(room_code)
+            print(f"✅ Turno avanzado correctamente: {game.current_turn_index}/{len(game.night_turns)}")
+            
+            # Verificar si la noche terminó
+            if game.phase == GamePhase.DAY_PHASE:
+                print(f"🌞 NOCHE TERMINADA - AVANZANDO A FASE DE DÍA")
+                
+                # Enviar actualizaciones a todos los jugadores
+                self._emit_game_update(room_code)
+                
+                # Enviar actualizaciones privadas a cada jugador con mayor prioridad
+                for player_id in game.players:
+                    self._emit_private_update(room_code, player_id)
                     
-                    # Enviar datos del nuevo turno
-                    current_role = game.get_current_turn_role()
-                    if current_role:
-                        self._emit_turn_start(room_code, current_role)
-                        self._start_turn_timer(room_code)  # Iniciar timer para el siguiente turno
-                        
-                        # Enviar datos específicos del rol
-                        if current_role == 'werewolf':
-                            self._emit_werewolf_turn_data(room_code)
-                        elif current_role == 'mason':
-                            self._emit_mason_turn_data(room_code)
-                        
+                # Pequeña pausa para asegurar que los clientes reciban las actualizaciones
+                time.sleep(0.1)
+                
+                # Avanzar a la fase de día
+                self._advance_to_day_phase(room_code)
+            else:
+                # Continuar con el siguiente turno
+                current_role = game.get_current_turn_role()
+                print(f"� CONTINUANDO CON SIGUIENTE TURNO: {current_role}")
+                
+                if not current_role:
+                    print(f"⚠️ ERROR: Rol actual es None después de avanzar turno")
+                    return
+                
+                # Primero enviar el evento de nuevo turno (prioridad más alta)
+                self._emit_turn_start(room_code, current_role)
+                
+                # Pequeña pausa para asegurar que los clientes reciban el evento turn_start
+                time.sleep(0.1)
+                
+                # Luego enviar actualizaciones a todos los jugadores
+                self._emit_game_update(room_code)
+                
+                # Enviar actualizaciones privadas a cada jugador
+                for player_id in game.players:
+                    self._emit_private_update(room_code, player_id)
+                
+                # Enviar datos específicos del rol (si son necesarios)
+                if current_role == 'werewolf':
+                    self._emit_werewolf_turn_data(room_code)
+                elif current_role == 'mason':
+                    self._emit_mason_turn_data(room_code)
+                
+                # Iniciar timer para el siguiente turno (después de todo lo demás)
+                self._start_turn_timer(room_code)
+                
         except Exception as e:
-            print(f"Error en auto_advance_turn para {room_code}: {e}")
+            print(f"🔴 ERROR EN AUTO-AVANCE: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def advance_turn(self, room_code: str):
+        """Avanza manualmente al siguiente turno (método público)"""
+        try:
+            print(f"🔧 AVANCE MANUAL DE TURNO para sala {room_code}")
+            
+            # Cancelar cualquier timer existente
+            self._cancel_timer(room_code)
+            
+            # Utilizar directamente el método _auto_advance_turn que ya tiene toda la lógica necesaria
+            self._auto_advance_turn(room_code)
+            
+            return True
+        except Exception as e:
+            print(f"🔴 ERROR EN AVANCE MANUAL: {str(e)}")
+            return False
 
     def _emit_mason_turn_data(self, room_code: str):
         """🔧 FIX: Emite datos específicos para el turno de los masones"""

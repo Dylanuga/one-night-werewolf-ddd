@@ -43,9 +43,37 @@ export const useGameStore = create((set, get) => ({
   
   setPrivateState: (state) => set({ privateState: state }),
   
-  setCurrentTurn: (turn) => set({ currentTurn: turn }),
+  setCurrentTurn: (turn) => {
+    console.log('🎮 Actualizando currentTurn:', turn);
+    set({ currentTurn: turn });
+    
+    // Sincronizar con privateState para evitar inconsistencias
+    const currentPrivateState = get().privateState;
+    if (currentPrivateState) {
+      set({ 
+        privateState: {
+          ...currentPrivateState,
+          current_turn_role: turn?.role
+        }
+      });
+    }
+  },
   
-  setNightAction: (action) => set({ nightAction: action }),
+  setNightAction: (action) => {
+    console.log('🌙 Actualizando nightAction:', action);
+    set({ nightAction: action });
+    
+    // Sincronizar con privateState para evitar inconsistencias
+    const currentPrivateState = get().privateState;
+    if (currentPrivateState) {
+      set({ 
+        privateState: {
+          ...currentPrivateState,
+          night_action: action
+        }
+      });
+    }
+  },
   
   setActionResult: (result) => {
     set({ actionResult: result });
@@ -183,13 +211,21 @@ export const useGameStore = create((set, get) => ({
   // 🆕 NUEVO: Funciones de emisión de eventos a través del socket centralizado
   emitEvent: (event, data = {}) => {
     const { socket } = get();
+    console.log('🔌 emitEvent - Socket actual:', socket?.id, 'conectado:', socket?.connected);
+    
     if (socket?.connected) {
-      console.log('📤 Emitiendo:', event, data);
-      socket.emit(event, data);
-      return true;
+      try {
+        console.log('📤 Emitiendo:', event, data);
+        socket.emit(event, data);
+        return true;
+      } catch (error) {
+        console.error('❌ Error emitiendo evento:', event, error);
+        return false;
+      }
+    } else {
+      console.warn('❌ Socket no conectado para:', event);
+      return false;
     }
-    console.warn('❌ Socket no conectado para:', event);
-    return false;
   },
   
   createRoom: (name) => {

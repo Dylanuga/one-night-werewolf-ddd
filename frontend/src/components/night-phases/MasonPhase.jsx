@@ -1,7 +1,20 @@
 // src/components/night-phases/MasonPhase.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useGameStore } from '../../store/gameStore';
 
 export const MasonPhase = ({ isMyTurn, nightActionData }) => {
+  const { currentTurn } = useGameStore();
+  
+  // DEBUG: Log cuando cambian props importantes
+  useEffect(() => {
+    console.log('🔨 MasonPhase actualizada:', { 
+      isMyTurn, 
+      hasActionData: !!nightActionData,
+      currentTurn,
+      actionType: nightActionData?.type
+    });
+  }, [isMyTurn, nightActionData, currentTurn]);
+
   if (!isMyTurn) {
     // Mostrar info del turno actual aunque no seas mason
     return (

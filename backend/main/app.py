@@ -602,6 +602,49 @@ def on_get_game_state(data=None):
         print(f"Error obteniendo estado: {e}")
         emit('error', {'message': 'Error interno del servidor'})
 
+@socketio.on('advance_turn')
+def on_advance_turn(data=None):
+    """Avanzar manualmente el turno durante la fase nocturna"""
+    try:
+        print(f"🔄 RECIBIDO ADVANCE_TURN de {request.sid}, data: {data}")
+        
+        if request.sid not in connected_players:
+            print(f"❌ ADVANCE_TURN: Socket {request.sid} no está en connected_players")
+            emit('error', {'message': 'No estás en ninguna sala'})
+            return
+        
+        player_id = connected_players[request.sid]
+        print(f"✅ ADVANCE_TURN: Socket {request.sid} -> player_id: {player_id}")
+        
+        room_code = game_service.get_player_room(player_id)
+        print(f"✅ ADVANCE_TURN: player_id {player_id} -> room_code: {room_code}")
+        
+        if not room_code:
+            print(f"❌ ADVANCE_TURN: No se encontró sala para player_id {player_id}")
+            emit('error', {'message': 'No se encontró tu sala'})
+            return
+        
+        # Verificar que el juego esté en fase nocturna
+        game = room_repository.get_game(room_code)
+        if not game:
+            print(f"❌ ADVANCE_TURN: No se encontró juego para sala {room_code}")
+            emit('error', {'message': 'Sala no encontrada'})
+            return
+        
+        if game.phase.value != 'night_phase':
+            print(f"❌ ADVANCE_TURN: Fase incorrecta {game.phase.value}")
+            emit('error', {'message': f'Solo se puede avanzar turno en night_phase, actual: {game.phase.value}'})
+            return
+        
+        # Avanzar el turno manualmente
+        print(f"🔧 AVANZANDO TURNO MANUALMENTE: {player_id} para sala {room_code}")
+        game_service.advance_turn(room_code)
+        print(f"✅ ADVANCE_TURN: Turno avanzado correctamente para sala {room_code}")
+        
+    except Exception as e:
+        print(f"❌ ERROR avanzando turno: {e}")
+        emit('error', {'message': f'Error al avanzar turno: {str(e)}'})
+
 @app.route('/debug/rooms')
 def debug_rooms():
     """Endpoint de debug"""

@@ -85,6 +85,7 @@ export const SOCKET_EVENTS = {
   START_GAME: 'start_game',
   NIGHT_ACTION: 'night_action',
   GET_GAME_STATE: 'get_game_state',
+  ADVANCE_TURN: 'advance_turn', // 🆕 Nuevo evento para avanzar turno manualmente
   
   // Servidor -> Cliente
   CONNECTED: 'connected',

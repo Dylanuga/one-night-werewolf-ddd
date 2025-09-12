@@ -17,14 +17,16 @@ export const NightPhase = () => {
     privateState,
     nightAction,
     setNightAction,
-    actionResult
+    actionResult,
+    currentTurn
   } = useGameStore();
 
-  // 🔧 FIX: Obtener datos del privateState en lugar de usar currentTurn
+  // 🔧 FIX MEJORADO: Usar tanto currentTurn como privateState para mayor robustez
   const myRole = privateState?.your_role;
-  const currentTurnRole = privateState?.current_turn_role;
+  // Preferir currentTurn.role si está disponible, sino usar privateState
+  const currentTurnRole = currentTurn?.role || privateState?.current_turn_role;
   const isMyTurn = privateState?.is_your_turn;
-  const nightActionData = privateState?.night_action;
+  const nightActionData = privateState?.night_action || nightAction;
 
   // Limpiar nightAction cuando deja de ser tu turno
   useEffect(() => {
@@ -32,6 +34,17 @@ export const NightPhase = () => {
       setNightAction(null);
     }
   }, [isMyTurn, nightAction, setNightAction]);
+
+  // DEBUG: Detectar cambios en el turno actual
+  useEffect(() => {
+    console.log('🔄 NightPhase - Cambio detectado:', {
+      currentTurn,
+      fromStore: currentTurn?.role,
+      fromPrivate: privateState?.current_turn_role,
+      usingRole: currentTurnRole,
+      isMyTurn
+    });
+  }, [currentTurn, privateState, currentTurnRole, isMyTurn]);
 
   const renderCurrentPhaseInfo = () => {
     if (!currentTurnRole) {

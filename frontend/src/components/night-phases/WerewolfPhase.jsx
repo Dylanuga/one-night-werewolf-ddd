@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction } = useGameStore();
+  const { executeNightAction, currentTurn } = useGameStore();
   const [hasActed, setHasActed] = useState(false);
 
   // Resetear hasActed cuando no es mi turno
@@ -12,6 +12,16 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
       setHasActed(false);
     }
   }, [isMyTurn]);
+
+  // DEBUG: Log cuando cambian props importantes
+  useEffect(() => {
+    console.log('🐺 WerewolfPhase actualizada:', { 
+      isMyTurn, 
+      hasActionData: !!nightActionData,
+      currentTurn,
+      actionType: nightActionData?.type
+    });
+  }, [isMyTurn, nightActionData, currentTurn]);
 
   const handleCenterCardClick = (position) => {
     if (!isMyTurn || hasActed) return;

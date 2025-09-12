@@ -174,13 +174,49 @@ function App() {
     socket.on(SOCKET_EVENTS.PRIVATE_UPDATE, (data) => {
       console.log('🔐 Actualización privada:', data);
       setPrivateState(data);
-      setGameState(data);
+      // Si gameState es null (ej: tras crear sala o unirse), inicializarlo con privateState
+      if (!useGameStore.getState().gameState) {
+        setGameState(data);
+      }
+      // Log extra para depuración
+      setTimeout(() => {
+        console.log('[DEBUG] Nuevo privateState:', data);
+      }, 0);
     });
 
     socket.on(SOCKET_EVENTS.TURN_START, (data) => {
-      console.log('⏰ Inicio de turno:', data);
+      console.log('⏰ Inicio de turno recibido:', data);
+      
+      // Registrar recepción del evento con su timestamp
+      const currentTime = new Date().toISOString();
+      console.log(`⏰ [${currentTime}] TURN_START recibido para rol: ${data.role}`);
+      
+      // Actualizar el turno actual en el estado global
       setCurrentTurn(data);
-      addLog(`--- Fase: ${data.role} ---`);
+      
+      // Añadir al log para que el usuario vea el cambio
+      addLog(`--- Fase: ${data.role} comenzó ---`);
+      
+      // Forzar actualización de privateState para mayor robustez
+      const currentPrivateState = useGameStore.getState().privateState;
+      if (currentPrivateState) {
+        const isYourTurn = currentPrivateState.your_role === data.role;
+        
+        // Actualizar privateState con el nuevo turno y estado is_your_turn
+        const updatedPrivateState = {
+          ...currentPrivateState,
+          current_turn_role: data.role,
+          is_your_turn: isYourTurn
+        };
+        
+        console.log('🔄 Actualizando privateState con nuevo turno:', {
+          role: data.role,
+          isYourTurn: isYourTurn
+        });
+        
+        // Aplicar la actualización
+        setPrivateState(updatedPrivateState);
+      }
     });
 
     socket.on(SOCKET_EVENTS.NIGHT_ACTION, (data) => {
