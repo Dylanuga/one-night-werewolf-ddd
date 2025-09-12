@@ -162,34 +162,45 @@ class GameLogic:
         return True
     
     def _calculate_night_turns(self) -> List[str]:
-        """Calcula el orden de turnos nocturnos basado en los roles"""
+        """Calcula el orden de turnos nocturnos basado en los roles seleccionados y presentes"""
         players_with_turns = []
         
+        # Solo incluir jugadores cuyos roles están en selected_roles y pueden actuar de noche
         for player_id, player in self.players.items():
-            if player.can_act_at_night():
+            player_role = player.get_role_name()
+            
+            # ✅ FILTRO: Solo incluir si el rol está en selected_roles Y puede actuar de noche
+            if (player_role in self.selected_roles and 
+                player.can_act_at_night()):
                 players_with_turns.append((player_id, player.get_turn_order()))
+                print(f"🔧 AÑADIENDO TURNO: {player_id} ({player_role}) - orden {player.get_turn_order()}")
         
-        # Verificar si hay masones en la partida pero ambos están en el centro
-        masons_in_game = [
-            pid for pid, player in self.players.items() 
-            if player.get_role_name() == 'mason'
-        ]
-        
-        masons_in_center = [
-            i for i, role in enumerate(self.center_cards) 
-            if role == 'mason'
-        ]
-        
-        # Si hay masones seleccionados pero ambos están en el centro,
-        # agregar un turno especial de "masones ausentes"
-        if len(masons_in_center) == 2 and len(masons_in_game) == 0:
-            # Agregar un turno ficticio para simular la espera de masones
-            players_with_turns.append(('mason_wait', 2))  # turn_order 2 como los masones
-            self.add_log("🔨 Masones están en el centro - fase de espera activada")
+        # Verificar si hay masones seleccionados pero ambos están en el centro
+        if 'mason' in self.selected_roles:
+            masons_in_game = [
+                pid for pid, player in self.players.items() 
+                if player.get_role_name() == 'mason'
+            ]
+            
+            masons_in_center = [
+                i for i, role in enumerate(self.center_cards) 
+                if role == 'mason'
+            ]
+            
+            # Si hay masones seleccionados pero ambos están en el centro,
+            # agregar un turno especial de "masones ausentes"
+            if len(masons_in_center) == 2 and len(masons_in_game) == 0:
+                # Agregar un turno ficticio para simular la espera de masones
+                players_with_turns.append(('mason_wait', 2))  # turn_order 2 como los masones
+                self.add_log("🔨 Masones están en el centro - fase de espera activada")
+                print(f"🔧 AÑADIENDO TURNO ESPECIAL: mason_wait - orden 2")
         
         # Ordenar por turn_order y retornar solo los player_ids
         players_with_turns.sort(key=lambda x: x[1])
-        return [player_id for player_id, _ in players_with_turns]
+        night_turns = [player_id for player_id, _ in players_with_turns]
+        
+        print(f"🔧 TURNOS NOCTURNOS CALCULADOS: {night_turns}")
+        return night_turns
     
     def get_current_turn_player(self) -> Optional[str]:
         """Retorna el player_id del jugador en el turno actual"""

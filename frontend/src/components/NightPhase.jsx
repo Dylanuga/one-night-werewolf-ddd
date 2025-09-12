@@ -11,6 +11,7 @@ export const NightPhase = () => {
     privateState,
     currentTurn,
     nightAction,
+    setNightAction,
     actionResult
   } = useGameStore();
 
@@ -24,6 +25,12 @@ export const NightPhase = () => {
   const currentTurnRole = privateState?.current_turn_role;
   const isMyTurn = privateState?.is_your_turn;
   const nightActionData = privateState?.night_action;
+  // Limpiar nightAction cuando deja de ser tu turno
+  useEffect(() => {
+    if (!isMyTurn && nightAction) {
+      setNightAction(null);
+    }
+  }, [isMyTurn, nightAction, setNightAction]);
 
   console.log('🔧 NIGHTPHASE DEBUG:', {
     myRole,
@@ -61,6 +68,19 @@ export const NightPhase = () => {
   };
 
   const renderMasonAction = () => {
+    if (!isMyTurn) {
+      // Mostrar info del turno actual aunque no seas mason
+      return (
+        <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-cyan-400 mb-4">🔨 Turno: Masón</h3>
+          <p className="text-cyan-200 mb-2">Los masones se reconocen entre sí.</p>
+          <p className="text-cyan-300 text-sm">Si están solos, observan en silencio.</p>
+          {nightActionData?.message && (
+            <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
+          )}
+        </div>
+      );
+    }
     if (!nightActionData) {
       console.log('🔧 NO HAY nightActionData para mason');
       return (
@@ -126,6 +146,19 @@ export const NightPhase = () => {
   };
 
   const renderWerewolfAction = () => {
+    if (!isMyTurn) {
+      // Mostrar info del turno actual aunque no seas lobo
+      return (
+        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
+          <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Turno: Lobos</h3>
+          <p className="text-red-200 mb-2">Los lobos se reconocen entre sí.</p>
+          <p className="text-red-300 text-sm">Si está solo, puede ver una carta del centro.</p>
+          {nightActionData?.message && (
+            <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
+          )}
+        </div>
+      );
+    }
     if (!nightActionData) {
       console.log('🔧 NO HAY nightActionData');
       return (
@@ -190,10 +223,17 @@ export const NightPhase = () => {
             ))}
           </div>
           
-          {hasActed && (
-            <p className="text-green-400 text-center mt-4">
-              ✓ Has elegido una carta
-            </p>
+          {hasActed && actionResult && (
+            <div className="bg-green-900/30 border border-green-500 rounded-lg p-4 mt-4">
+              <p className="text-green-400 text-center font-bold">
+                ✓ {actionResult.message || 'Has elegido una carta'}
+              </p>
+              {actionResult.center_role && (
+                <p className="text-white text-center mt-2">
+                  🃏 Has visto: <span className="font-bold text-yellow-400">{actionResult.center_role}</span>
+                </p>
+              )}
+            </div>
           )}
         </div>
       );
@@ -249,7 +289,6 @@ export const NightPhase = () => {
               )}
             </div>
           </div>
-          
           <div className="flex items-center gap-2 text-white">
             <Clock size={20} />
             <span className="font-bold text-lg">{timeLeft}s</span>
@@ -260,32 +299,31 @@ export const NightPhase = () => {
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {/* 🔧 FIX: Mostrar acción según el rol */}
-        {isMyRoleTurn && myRole === 'werewolf' && renderWerewolfAction()}
-        {isMyRoleTurn && myRole === 'mason' && renderMasonAction()}
+        {/* Mostrar acción del rol activo para todos */}
+        {currentTurnRole === 'werewolf' && renderWerewolfAction()}
+        {currentTurnRole === 'mason' && renderMasonAction()}
         {actionResult && renderActionResult()}
         
-        {!isMyRoleTurn && (
-          <>
-            {currentTurnRole === 'mason' && !gameState?.players?.some(p => p.role === 'mason') ? (
-              // Caso especial: fase de masones pero no hay masones en juego
-              <div className="text-center">
-                <div className="bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 mb-4">
-                  <h4 className="text-cyan-400 font-bold text-lg mb-2">🔨 Fase de Masones</h4>
-                  <p className="text-slate-300">
-                    Los masones están en el centro. Esperando...
-                  </p>
-                  <div className="mt-3 text-cyan-300 text-sm">
-                    ⏳ Los demás jugadores esperan {timeLeft} segundos
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-slate-400 text-center">
-                Esperando a que {currentTurnRole} complete su turno...
-              </p>
-            )}
-          </>
+        {/* Renderizar información de otros roles */}
+        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && renderGenericRoleAction()}
+      </div>
+    );
+  };
+
+  const renderGenericRoleAction = () => {
+    const roleInfo = ROLES[currentTurnRole];
+    if (!roleInfo) return null;
+
+    return (
+      <div className="bg-slate-700/50 border border-slate-500 rounded-lg p-6 text-center">
+        <h3 className="text-xl font-bold text-white mb-4">
+          {roleInfo.emoji} Turno: {roleInfo.name}
+        </h3>
+        <p className="text-slate-300 mb-2">{roleInfo.description}</p>
+        {isMyTurn ? (
+          <p className="text-yellow-400 font-medium">¡Es tu turno! Actúa según tu rol.</p>
+        ) : (
+          <p className="text-slate-400">Esperando a que complete su turno...</p>
         )}
       </div>
     );
@@ -338,6 +376,15 @@ export const NightPhase = () => {
             )}
             <p>🎭 Tu rol: {myRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
+            {/* Mostrar info del turno actual para todos */}
+            {currentTurnRole && (
+              <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-700">
+                <span className="font-bold text-cyan-300">Turno actual:</span> <span className="font-mono">{currentTurnRole}</span>
+                {nightActionData?.message && (
+                  <div className="text-slate-400 text-xs mt-1">{nightActionData.message}</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
