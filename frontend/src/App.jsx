@@ -24,8 +24,7 @@ function App() {
     setConnectionStatus,
     setGameState,
     setPrivateState,
-    setCurrentTurn,
-    setNightAction,
+    setCurrentTurnDisplay,
     setActionResult,
     setError,
     addLog,
@@ -79,6 +78,7 @@ function App() {
     // Eventos básicos de conexión
     socket.on('connect', () => {
       console.log('🔗 SOCKET CONECTADO:', socket.id);
+      console.log('🔍 Listeners registrados después de conectar:', socket.eventNames());
       setConnectionStatus(true);
     });
 
@@ -110,8 +110,32 @@ function App() {
       console.log('🔄 Intento de reconexión #', attemptNumber);
     });
 
+    // 🔍 DEBUG: Heartbeat para verificar comunicación WebSocket
+    const heartbeatInterval = setInterval(() => {
+      if (socket.connected) {
+        console.log('💓 Heartbeat - Socket conectado, enviando ping...');
+        console.log('🔍 Listeners activos:', socket.eventNames());
+        socket.emit('ping', { timestamp: Date.now() });
+      } else {
+        console.log('💔 Heartbeat - Socket DESCONECTADO');
+      }
+    }, 10000); // Cada 10 segundos
+    
+    socket.on('pong', (data) => {
+      console.log('💓 Pong recibido:', data);
+    });
+
     socket.on('reconnect_error', (error) => {
       console.error('❌ Error de reconexión:', error);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('🔌 DESCONECTADO DEL SERVIDOR:', reason);
+      setConnectionStatus(false);
+      if (reason === 'io server disconnect') {
+        // Desconexión iniciada por el servidor
+        console.error('❌ El servidor forzó la desconexión');
+      }
     });
 
     socket.on('reconnect_failed', () => {
@@ -163,11 +187,21 @@ function App() {
 
     socket.on(SOCKET_EVENTS.GAME_STARTED, (data) => {
       console.log('🎮 Juego iniciado:', data);
+      console.log('🔧 Estado actual antes de GAME_STARTED:', {
+        socketConnected: socket.connected,
+        gameState: useGameStore.getState().gameState,
+        privateState: useGameStore.getState().privateState
+      });
       addLog('¡El juego ha comenzado!');
     });
 
     socket.on(SOCKET_EVENTS.GAME_UPDATE, (data) => {
       console.log('🔄 Actualización del juego:', data);
+      console.log('🔧 Verificando si GAME_UPDATE causa problemas:', {
+        dataPhase: data?.phase,
+        socketConnected: socket.connected,
+        timestamp: Date.now()
+      });
       setGameState(data);
     });
 
@@ -187,15 +221,32 @@ function App() {
     socket.on(SOCKET_EVENTS.TURN_START, (data) => {
       console.log('⏰ Inicio de turno recibido:', data);
       
+      // 🔍 DEBUG: Verificar que el listener sigue funcionando
+      console.log('🔍 TURN_START listener - FUNCIONANDO para rol:', data.role);
+      console.log('🔍 Listeners actuales en socket:', socket.eventNames());
+      
       // Registrar recepción del evento con su timestamp
       const currentTime = new Date().toISOString();
       console.log(`⏰ [${currentTime}] TURN_START recibido para rol: ${data.role}`);
       
-      // Actualizar el turno actual en el estado global
-      setCurrentTurn(data);
+      // 🔧 NUEVO: Verificar conectividad y estado actual
+      console.log(`🔧 Estado del socket: conectado=${socket.connected}, id=${socket.id}`);
+      console.log(`🔧 Estado actual antes del cambio:`, {
+        currentTurnRole: useGameStore.getState().privateState?.current_turn_role,
+        gamePhase: useGameStore.getState().gameState?.phase
+      });
       
-      // Añadir al log para que el usuario vea el cambio
-      addLog(`--- Fase: ${data.role} comenzó ---`);
+      try {
+        // 🔧 FIX CRÍTICO: Usar setCurrentTurnDisplay que SÍ existe en gameStore
+        setCurrentTurnDisplay(data);
+        
+        // Añadir al log para que el usuario vea el cambio
+        addLog(`--- Fase: ${data.role} comenzó ---`);
+        
+        console.log('✅ TURN_START procesado exitosamente para:', data.role);
+      } catch (error) {
+        console.error('❌ ERROR procesando TURN_START:', error);
+      }
       
       // Forzar actualización de privateState para mayor robustez
       const currentPrivateState = useGameStore.getState().privateState;
@@ -221,7 +272,16 @@ function App() {
 
     socket.on(SOCKET_EVENTS.NIGHT_ACTION, (data) => {
       console.log('🌙 Acción nocturna disponible:', data);
-      setNightAction(data);
+      
+      // 🔧 FIX: Actualizar privateState en lugar de usar setNightAction que no existe
+      const currentPrivateState = useGameStore.getState().privateState;
+      if (currentPrivateState) {
+        setPrivateState({
+          ...currentPrivateState,
+          night_action: data,
+          is_your_turn: true  // Si recibe night_action, es definitivamente su turno
+        });
+      }
     });
 
     socket.on(SOCKET_EVENTS.ACTION_RESULT, (data) => {
@@ -242,6 +302,10 @@ function App() {
     // Cleanup SOLO al desmontar el componente App
     return () => {
       console.log('🧹 CLEANUP App - Desmontando aplicación');
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        console.log('🧹 Heartbeat interval limpiado');
+      }
       if (socket) {
         socket.removeAllListeners();
         socket.disconnect();

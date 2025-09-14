@@ -1,6 +1,7 @@
 # backend/main/app.py
 import secrets
 import string
+import time
 from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
@@ -184,12 +185,23 @@ room_repository = RoomRepository()
 def emit_callback(event: str, data: Any, room: str = None):
     """Callback para que el GameService pueda emitir eventos"""
     try:
+        # 🔍 DEBUG: Log detallado de emisiones
+        if event == 'turn_start':
+            print(f"📡 EMIT_CALLBACK - ENVIANDO {event} a room {room}: {data}")
+        
         if room:
-            socketio.emit(event, data, room=room)
+            result = socketio.emit(event, data, room=room)
+            if event == 'turn_start':
+                print(f"📡 EMIT_CALLBACK - RESULTADO socketio.emit: {result}")
         else:
-            socketio.emit(event, data)
+            result = socketio.emit(event, data)
+            if event == 'turn_start':
+                print(f"📡 EMIT_CALLBACK - RESULTADO socketio.emit (broadcast): {result}")
+                
     except Exception as e:
-        print(f"Error en emit_callback - evento: {event}, room: {room}, error: {e}")
+        print(f"❌ ERROR en emit_callback - evento: {event}, room: {room}, error: {e}")
+        import traceback
+        traceback.print_exc()
 
 game_service = GameService(room_repository, emit_callback)
 
@@ -538,12 +550,14 @@ def on_start_game(data=None):
         
         success = game_service.start_game(room_code, player_id)
         if success:
-            # 🎯 CRÍTICO: Emitir game_started a TODA LA SALA
+            # 🎯 CRÍTICO: Emitir game_started SOLO a toda la sala con datos consistentes
+            game_started_data = {
+                'room_code': room_code,
+                'message': 'El juego ha comenzado',
+                'timestamp': time.time()
+            }
             print(f"✅ EMITIENDO game_started A TODA LA SALA {room_code}")
-            socketio.emit('game_started', {}, room=room_code)
-            
-            # También emitir al host individual (por compatibilidad)
-            emit('game_started')
+            socketio.emit('game_started', game_started_data, room=room_code)
             
             print(f"✅ JUEGO INICIADO POR HOST: {player_id}")
         else:
