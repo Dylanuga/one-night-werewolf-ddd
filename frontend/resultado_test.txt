@@ -1,0 +1,1231 @@
+
+> frontend@0.1.0 test
+> react-scripts test
+
+FAIL src/__tests__/NightPhase.test.jsx
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m  8 |[39m [90m// Utilidad para mockear el estado del store[39m
+     [90m  9 |[39m [36mfunction[39m setPrivateStateMock(state) {
+    [31m[1m>[22m[39m[90m 10 |[39m   act(() [33m=>[39m {
+     [90m    |[39m      [31m[1m^[22m[39m
+     [90m 11 |[39m     useGameStore[33m.[39msetState({ privateState[33m:[39m state })[33m;[39m
+     [90m 12 |[39m   })[33m;[39m
+     [90m 13 |[39m }[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at setPrivateStateMock (src/__tests__/NightPhase.test.jsx:10:6)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:23:5)
+
+  ● NightPhase - avance de turno › muestra el turno del lobo cuando es su turno
+
+    TestingLibraryElementError: Found multiple elements with the text: /Eres el único lobo/i
+
+    Here are the matching elements:
+
+    Ignored nodes: comments, script, style
+    [36m<h3[39m
+      [33mclass[39m=[32m"text-xl font-bold text-red-400 mb-4 text-center"[39m
+    [36m>[39m
+      [0m🐺 Eres el único lobo[0m
+    [36m</h3>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<p[39m
+      [33mclass[39m=[32m"text-white text-center mb-6"[39m
+    [36m>[39m
+      [0mEres el único lobo.[0m
+    [36m</p>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<div[39m
+      [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+    [36m>[39m
+      [0mEres el único lobo.[0m
+    [36m</div>[39m
+
+    (If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"max-w-4xl mx-auto"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-center mb-8"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-4xl mb-4"[39m
+              [36m>[39m
+                [0m🌙[0m
+              [36m</div>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"text-3xl font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mNoche - Fase: [0m
+                [0mwerewolf[0m
+              [36m</h1>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-400"[39m
+              [36m>[39m
+                [0mLos roles actúan en orden durante la noche[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-lg font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mTu Rol:[0m
+              [36m</h3>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-3xl"[39m
+                [36m>[39m
+                  [0m🐺[0m
+                [36m</span>[39m
+                [36m<div>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                  [36m>[39m
+                    [0mWerewolf (Lobo)[0m
+                  [36m</p>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-slate-400"[39m
+                  [36m>[39m
+                    [0mEres: [0m
+                    [0mwerewolf[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-lg p-6 border bg-yellow-900/30 border-yellow-500"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center justify-between mb-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-3"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"text-3xl"[39m
+                  [36m>[39m
+                    [0m🐺[0m
+                  [36m</span>[39m
+                  [36m<div>[39m
+                    [36m<h3[39m
+                      [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                    [36m>[39m
+                      [0mFase: [0m
+                      [0mwerewolf[0m
+                    [36m</h3>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-yellow-400 font-medium"[39m
+                    [36m>[39m
+                      [0m¡Es tu turno![0m
+                    [36m</p>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-2 text-white"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-clock"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"20"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 6v6l4 2"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"12"[39m
+                      [33mr[39m=[32m"10"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-lg"[39m
+                  [36m>[39m
+                    [0m6[0m
+                    [0ms[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-300 mb-4"[39m
+              [36m>[39m
+                [0mSe conocen entre ellos. Si está solo, ve una carta del centro.[0m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bg-red-900/30 border border-red-500 rounded-lg p-6"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"text-xl font-bold text-red-400 mb-4 text-center"[39m
+                [36m>[39m
+                  [0m🐺 Eres el único lobo[0m
+                [36m</h3>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-white text-center mb-6"[39m
+                [36m>[39m
+                  [0mEres el único lobo.[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"grid grid-cols-3 gap-4"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"
+                    bg-slate-700 hover:bg-slate-600 disabled:opacity-50 
+                    border-2 border-yellow-500 rounded-lg p-4 transition-all duration-200
+                    hover:border-yellow-400
+                  "[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"text-4xl mb-2"[39m
+                    [36m>[39m
+                      [0m🃏[0m
+                    [36m</div>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-white font-bold"[39m
+                    [36m>[39m
+                      [0mCarta [0m
+                      [0m1[0m
+                    [36m</p>[39m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"
+                    bg-slate-700 hover:bg-slate-600 disabled:opacity-50 
+                    border-2 border-yellow-500 rounded-lg p-4 transition-all duration-200
+                    hover:border-yellow-400
+                  "[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"text-4xl mb-2"[39m
+                    [36m>[39m
+                      [0m🃏[0m
+                    [36m</div>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-white font-bold"[39m
+                    [36m>[39m
+                      [0mCarta [0m
+                      [0m2[0m
+                    [36m</p>[39m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"
+                    bg-slate-700 hover:bg-slate-600 disabled:opacity-50 
+                    border-2 border-yellow-500 rounded-lg p-4 transition-all duration-200
+                    hover:border-yellow-400
+                  "[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"text-4xl mb-2"[39m
+                    [36m>[39m
+                      [0m🃏[0m
+                    [36m</div>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-white font-bold"[39m
+                    [36m>[39m
+                      [0mCarta [0m
+                      [0m3[0m
+                    [36m</p>[39m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-6 bg-slate-800 rounded-lg p-4 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h4[39m
+                [33mclass[39m=[32m"text-white font-bold mb-2 flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-eye"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"3"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0mInformación:[0m
+              [36m</h4>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-slate-300 text-sm space-y-1"[39m
+              [36m>[39m
+                [36m<p>[39m
+                  [0m🎯 Es tu turno.[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m🎭 Tu rol: [0m
+                  [0mwerewolf[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m👥 Jugadores en partida: [0m
+                  [0m0[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-2 p-2 rounded bg-slate-900/60 border border-slate-700"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-cyan-300"[39m
+                  [36m>[39m
+                    [0mTurno actual:[0m
+                  [36m</span>[39m
+                  [0m [0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-mono"[39m
+                  [36m>[39m
+                    [0mwerewolf[0m
+                  [36m</span>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+                  [36m>[39m
+                    [0mEres el único lobo.[0m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    [0m [90m 38 |[39m     expect(faseElements[33m.[39mlength)[33m.[39mtoBeGreaterThan([35m0[39m)[33m;[39m
+     [90m 39 |[39m     expect(screen[33m.[39mgetByText([35m/¡Es tu turno!/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+    [31m[1m>[22m[39m[90m 40 |[39m     expect(screen[33m.[39mgetByText([35m/Eres el único lobo/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 41 |[39m   })[33m;[39m
+     [90m 42 |[39m
+     [90m 43 |[39m   it([32m'muestra el turno del masón cuando es su turno'[39m[33m,[39m () [33m=>[39m {[0m
+
+      at Object.getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/config.js:37:19)
+      at getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:20:35)
+      at getMultipleElementsFoundError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:23:10)
+      at node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:55:13
+      at getByText (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:40:19)
+
+  ● NightPhase - avance de turno › muestra el turno del masón cuando es su turno
+
+    TestingLibraryElementError: Found multiple elements with the text: /Tu compañero masón es: 4/i
+
+    Here are the matching elements:
+
+    Ignored nodes: comments, script, style
+    [36m<p[39m
+      [33mclass[39m=[32m"text-white text-lg mb-4"[39m
+    [36m>[39m
+      [0mTu compañero masón es: 4[0m
+    [36m</p>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<div[39m
+      [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+    [36m>[39m
+      [0mTu compañero masón es: 4[0m
+    [36m</div>[39m
+
+    (If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"max-w-4xl mx-auto"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-center mb-8"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-4xl mb-4"[39m
+              [36m>[39m
+                [0m🌙[0m
+              [36m</div>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"text-3xl font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mNoche - Fase: [0m
+                [0mmason[0m
+              [36m</h1>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-400"[39m
+              [36m>[39m
+                [0mLos roles actúan en orden durante la noche[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-lg font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mTu Rol:[0m
+              [36m</h3>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-3xl"[39m
+                [36m>[39m
+                  [0m🔨[0m
+                [36m</span>[39m
+                [36m<div>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                  [36m>[39m
+                    [0mMason (Masón)[0m
+                  [36m</p>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-slate-400"[39m
+                  [36m>[39m
+                    [0mEres: [0m
+                    [0mmason[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-lg p-6 border bg-yellow-900/30 border-yellow-500"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center justify-between mb-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-3"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"text-3xl"[39m
+                  [36m>[39m
+                    [0m🔨[0m
+                  [36m</span>[39m
+                  [36m<div>[39m
+                    [36m<h3[39m
+                      [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                    [36m>[39m
+                      [0mFase: [0m
+                      [0mmason[0m
+                    [36m</h3>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-yellow-400 font-medium"[39m
+                    [36m>[39m
+                      [0m¡Es tu turno![0m
+                    [36m</p>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-2 text-white"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-clock"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"20"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 6v6l4 2"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"12"[39m
+                      [33mr[39m=[32m"10"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-lg"[39m
+                  [36m>[39m
+                    [0m6[0m
+                    [0ms[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-300 mb-4"[39m
+              [36m>[39m
+                [0mSe conocen entre ellos (siempre van de 2 en 2).[0m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"text-xl font-bold text-cyan-400 mb-4"[39m
+                [36m>[39m
+                  [0m🔨 Otros Masones[0m
+                [36m</h3>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-white text-lg mb-4"[39m
+                [36m>[39m
+                  [0mTu compañero masón es: 4[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"bg-cyan-800/50 rounded-lg p-4 mt-4"[39m
+                [36m>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-cyan-200 font-bold text-2xl"[39m
+                  [36m>[39m
+                    [0m🔨 [0m
+                    [0m4[0m
+                  [36m</p>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-cyan-300 text-sm mt-2"[39m
+                  [36m>[39m
+                    [0mEs tu compañero masón[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-cyan-200 text-sm mt-4"[39m
+                [36m>[39m
+                  [0m¡Ambos conocéis vuestra identidad![0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-6 bg-slate-800 rounded-lg p-4 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h4[39m
+                [33mclass[39m=[32m"text-white font-bold mb-2 flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-eye"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"3"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0mInformación:[0m
+              [36m</h4>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-slate-300 text-sm space-y-1"[39m
+              [36m>[39m
+                [36m<p>[39m
+                  [0m🎯 Es tu turno.[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m🎭 Tu rol: [0m
+                  [0mmason[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m👥 Jugadores en partida: [0m
+                  [0m0[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-2 p-2 rounded bg-slate-900/60 border border-slate-700"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-cyan-300"[39m
+                  [36m>[39m
+                    [0mTurno actual:[0m
+                  [36m</span>[39m
+                  [0m [0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-mono"[39m
+                  [36m>[39m
+                    [0mmason[0m
+                  [36m</span>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+                  [36m>[39m
+                    [0mTu compañero masón es: 4[0m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    [0m [90m 52 |[39m     expect(faseElements[33m.[39mlength)[33m.[39mtoBeGreaterThan([35m0[39m)[33m;[39m
+     [90m 53 |[39m     expect(screen[33m.[39mgetByText([35m/¡Es tu turno!/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+    [31m[1m>[22m[39m[90m 54 |[39m     expect(screen[33m.[39mgetByText([35m/Tu compañero masón es: 4/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 55 |[39m   })[33m;[39m
+     [90m 56 |[39m
+     [90m 57 |[39m   it([32m'muestra mensaje de espera cuando no es tu turno'[39m[33m,[39m () [33m=>[39m {[0m
+
+      at Object.getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/config.js:37:19)
+      at getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:20:35)
+      at getMultipleElementsFoundError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:23:10)
+      at node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:55:13
+      at getByText (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:54:19)
+
+  ● NightPhase - avance de turno › avanza correctamente de fase al cambiar current_turn_role
+
+    TestingLibraryElementError: Found multiple elements with the text: /Tu compañero masón es: 4/i
+
+    Here are the matching elements:
+
+    Ignored nodes: comments, script, style
+    [36m<p[39m
+      [33mclass[39m=[32m"text-white text-lg mb-4"[39m
+    [36m>[39m
+      [0mTu compañero masón es: 4[0m
+    [36m</p>[39m
+
+    Ignored nodes: comments, script, style
+    [36m<div[39m
+      [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+    [36m>[39m
+      [0mTu compañero masón es: 4[0m
+    [36m</div>[39m
+
+    (If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"max-w-4xl mx-auto"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-center mb-8"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-4xl mb-4"[39m
+              [36m>[39m
+                [0m🌙[0m
+              [36m</div>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"text-3xl font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mNoche - Fase: [0m
+                [0mmason[0m
+              [36m</h1>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-400"[39m
+              [36m>[39m
+                [0mLos roles actúan en orden durante la noche[0m
+              [36m</p>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-lg font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mTu Rol:[0m
+              [36m</h3>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-3"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-3xl"[39m
+                [36m>[39m
+                  [0m🔨[0m
+                [36m</span>[39m
+                [36m<div>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                  [36m>[39m
+                    [0mMason (Masón)[0m
+                  [36m</p>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-slate-400"[39m
+                  [36m>[39m
+                    [0mEres: [0m
+                    [0mmason[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"rounded-lg p-6 border bg-yellow-900/30 border-yellow-500"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center justify-between mb-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-3"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"text-3xl"[39m
+                  [36m>[39m
+                    [0m🔨[0m
+                  [36m</span>[39m
+                  [36m<div>[39m
+                    [36m<h3[39m
+                      [33mclass[39m=[32m"text-xl font-bold text-white"[39m
+                    [36m>[39m
+                      [0mFase: [0m
+                      [0mmason[0m
+                    [36m</h3>[39m
+                    [36m<p[39m
+                      [33mclass[39m=[32m"text-yellow-400 font-medium"[39m
+                    [36m>[39m
+                      [0m¡Es tu turno![0m
+                    [36m</p>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-2 text-white"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-clock"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"20"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"20"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 6v6l4 2"[39m
+                    [36m/>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"12"[39m
+                      [33mr[39m=[32m"10"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-lg"[39m
+                  [36m>[39m
+                    [0m6[0m
+                    [0ms[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-300 mb-4"[39m
+              [36m>[39m
+                [0mSe conocen entre ellos (siempre van de 2 en 2).[0m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bg-cyan-900/30 border border-cyan-500 rounded-lg p-6 text-center"[39m
+              [36m>[39m
+                [36m<h3[39m
+                  [33mclass[39m=[32m"text-xl font-bold text-cyan-400 mb-4"[39m
+                [36m>[39m
+                  [0m🔨 Otros Masones[0m
+                [36m</h3>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-white text-lg mb-4"[39m
+                [36m>[39m
+                  [0mTu compañero masón es: 4[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"bg-cyan-800/50 rounded-lg p-4 mt-4"[39m
+                [36m>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-cyan-200 font-bold text-2xl"[39m
+                  [36m>[39m
+                    [0m🔨 [0m
+                    [0m4[0m
+                  [36m</p>[39m
+                  [36m<p[39m
+                    [33mclass[39m=[32m"text-cyan-300 text-sm mt-2"[39m
+                  [36m>[39m
+                    [0mEs tu compañero masón[0m
+                  [36m</p>[39m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"text-cyan-200 text-sm mt-4"[39m
+                [36m>[39m
+                  [0m¡Ambos conocéis vuestra identidad![0m
+                [36m</p>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-6 bg-slate-800 rounded-lg p-4 border border-slate-700"[39m
+            [36m>[39m
+              [36m<h4[39m
+                [33mclass[39m=[32m"text-white font-bold mb-2 flex items-center gap-2"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-eye"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"20"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"20"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"3"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [0mInformación:[0m
+              [36m</h4>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-slate-300 text-sm space-y-1"[39m
+              [36m>[39m
+                [36m<p>[39m
+                  [0m🎯 Es tu turno.[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m🎭 Tu rol: [0m
+                  [0mmason[0m
+                [36m</p>[39m
+                [36m<p>[39m
+                  [0m👥 Jugadores en partida: [0m
+                  [0m0[0m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"mt-2 p-2 rounded bg-slate-900/60 border border-slate-700"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-bold text-cyan-300"[39m
+                  [36m>[39m
+                    [0mTurno actual:[0m
+                  [36m</span>[39m
+                  [0m [0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"font-mono"[39m
+                  [36m>[39m
+                    [0mmason[0m
+                  [36m</span>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"text-slate-400 text-xs mt-1"[39m
+                  [36m>[39m
+                    [0mTu compañero masón es: 4[0m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    [0m [90m 85 |[39m     rerender([33m<[39m[33mNightPhase[39m [33m/[39m[33m>[39m)[33m;[39m
+     [90m 86 |[39m     expect(screen[33m.[39mgetAllByText([35m/Fase: mason/i[39m)[33m.[39mlength)[33m.[39mtoBeGreaterThan([35m0[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 87 |[39m     expect(screen[33m.[39mgetByText([35m/Tu compañero masón es: 4/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m    |[39m                   [31m[1m^[22m[39m
+     [90m 88 |[39m   })[33m;[39m
+     [90m 89 |[39m })[33m;[39m
+     [90m 90 |[39m[0m
+
+      at Object.getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/config.js:37:19)
+      at getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:20:35)
+      at getMultipleElementsFoundError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:23:10)
+      at node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:55:13
+      at getByText (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:87:19)
+
+FAIL src/App.test.js
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m 3 |[39m
+     [90m 4 |[39m test([32m'renders learn react link'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 5 |[39m   render([33m<[39m[33mApp[39m [33m/[39m[33m>[39m)[33m;[39m
+     [90m   |[39m         [31m[1m^[22m[39m
+     [90m 6 |[39m   [36mconst[39m linkElement [33m=[39m screen[33m.[39mgetByText([35m/learn react/i[39m)[33m;[39m
+     [90m 7 |[39m   expect(linkElement)[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m 8 |[39m })[33m;[39m[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at node_modules/@testing-library/react/dist/act-compat.js:63:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:159:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:246:10)
+      at Object.<anonymous> (src/App.test.js:5:9)
+
+    console.log
+      🔧 App - Inicializando socket centralizado
+
+      at src/App.jsx:46:13
+
+    console.log
+      🔌 Creando nueva conexión socket...
+
+      at src/App.jsx:61:13
+
+    console.log
+      Estado del juego actualizado: {
+        phase: 'lobby',
+        gameState: null,
+        privateState: null,
+        isCurrentUserHost: undefined,
+        hostPlayer: undefined
+      }
+
+      at src/App.jsx:240:13
+
+    console.log
+      🧹 CLEANUP App - Desmontando aplicación
+
+      at src/App.jsx:212:15
+          at Array.forEach (<anonymous>)
+
+  ● renders learn react link
+
+    TestingLibraryElementError: Unable to find an element with the text: /learn react/i. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-h-screen bg-gradient-to-b from-slate-900 to-slate-800"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-700"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"max-w-7xl mx-auto px-4 py-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center justify-between"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-4"[39m
+                [36m>[39m
+                  [36m<h1[39m
+                    [33mclass[39m=[32m"text-white font-bold text-lg"[39m
+                  [36m>[39m
+                    [0m🐺 One Night Werewolf[0m
+                  [36m</h1>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-4"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"flex items-center gap-2 text-sm text-red-400"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-sm"[39m
+                    [36m>[39m
+                      [0m🔴[0m
+                    [36m</span>[39m
+                    [0mDesconectado[0m
+                  [36m</div>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"flex items-center gap-2 px-3 py-1 rounded text-sm transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white"[39m
+                    [33mtitle[39m=[32m"Panel de Testing"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"lucide lucide-test-tube"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"16"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"16"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M8.5 2h7"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M14.5 16h-5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0mTesting[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pt-16"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-col lg:flex-row min-h-screen"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex-1"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"text-white text-center"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"[39m
+                    [36m/>[39m
+                    [36m<p>[39m
+                      [0mConectando al servidor...[0m
+                    [36m</p>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bg-slate-800 rounded-lg p-8 max-w-sm w-full mx-4 border border-slate-700 text-center"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-4xl mb-4 block"[39m
+              [36m>[39m
+                [0m📡[0m
+              [36m</span>[39m
+              [36m<h3[39m
+                [33mclass[39m=[32m"text-xl font-bold text-white mb-2"[39m
+              [36m>[39m
+                [0mConexión perdida[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-slate-400 mb-4"[39m
+              [36m>[39m
+                [0mIntentando reconectar al servidor...[0m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"animate-spin rounded-full h-8 w-8 border-b-2 border-red-400 mx-auto"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+    [0m [90m 4 |[39m test([32m'renders learn react link'[39m[33m,[39m () [33m=>[39m {
+     [90m 5 |[39m   render([33m<[39m[33mApp[39m [33m/[39m[33m>[39m)[33m;[39m
+    [31m[1m>[22m[39m[90m 6 |[39m   [36mconst[39m linkElement [33m=[39m screen[33m.[39mgetByText([35m/learn react/i[39m)[33m;[39m
+     [90m   |[39m                              [31m[1m^[22m[39m
+     [90m 7 |[39m   expect(linkElement)[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m 8 |[39m })[33m;[39m
+     [90m 9 |[39m[0m
+
+      at Object.getElementError (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at getByText (node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:95:19)
+      at Object.<anonymous> (src/App.test.js:6:30)
+
+Test Suites: 2 failed, 2 total
+Tests:       4 failed, 2 passed, 6 total
+Snapshots:   0 total
+Time:        4.421 s
+Ran all test suites related to changed files.
+
+PASS src/__tests__/NightPhase.test.jsx
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m  8 |[39m [90m// Utilidad para mockear el estado del store[39m
+     [90m  9 |[39m [36mfunction[39m setPrivateStateMock(state) {
+    [31m[1m>[22m[39m[90m 10 |[39m   act(() [33m=>[39m {
+     [90m    |[39m      [31m[1m^[22m[39m
+     [90m 11 |[39m     useGameStore[33m.[39msetState({ privateState[33m:[39m state })[33m;[39m
+     [90m 12 |[39m   })[33m;[39m
+     [90m 13 |[39m }[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at setPrivateStateMock (src/__tests__/NightPhase.test.jsx:10:6)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:23:5)
+
+PASS src/App.test.js
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m 3 |[39m
+     [90m 4 |[39m test([32m'renderiza el título principal'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 5 |[39m   render([33m<[39m[33mApp[39m [33m/[39m[33m>[39m)[33m;[39m
+     [90m   |[39m         [31m[1m^[22m[39m
+     [90m 6 |[39m   expect(screen[33m.[39mgetByText([35m/One Night Werewolf/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m 7 |[39m })[33m;[39m
+     [90m 8 |[39m[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at node_modules/@testing-library/react/dist/act-compat.js:63:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:159:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:246:10)
+      at Object.<anonymous> (src/App.test.js:5:9)
+
+    console.log
+      🔧 App - Inicializando socket centralizado
+
+      at src/App.jsx:46:13
+
+    console.log
+      🔌 Creando nueva conexión socket...
+
+      at src/App.jsx:61:13
+
+    console.log
+      Estado del juego actualizado: {
+        phase: 'lobby',
+        gameState: null,
+        privateState: null,
+        isCurrentUserHost: undefined,
+        hostPlayer: undefined
+      }
+
+      at src/App.jsx:240:13
+
+    console.log
+      🧹 CLEANUP App - Desmontando aplicación
+
+      at src/App.jsx:212:15
+          at Array.forEach (<anonymous>)
+
+
+Test Suites: 2 passed, 2 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        5.022 s
+Ran all test suites related to changed files.
+
+PASS src/__tests__/NightPhase.test.jsx
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m  8 |[39m [90m// Utilidad para mockear el estado del store[39m
+     [90m  9 |[39m [36mfunction[39m setPrivateStateMock(state) {
+    [31m[1m>[22m[39m[90m 10 |[39m   act(() [33m=>[39m {
+     [90m    |[39m      [31m[1m^[22m[39m
+     [90m 11 |[39m     useGameStore[33m.[39msetState({ privateState[33m:[39m state })[33m;[39m
+     [90m 12 |[39m   })[33m;[39m
+     [90m 13 |[39m }[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at setPrivateStateMock (src/__tests__/NightPhase.test.jsx:10:6)
+      at Object.<anonymous> (src/__tests__/NightPhase.test.jsx:23:5)
+
+PASS src/App.test.js
+  ● Console
+
+    console.error
+      Warning: `ReactDOMTestUtils.act` is deprecated in favor of `React.act`. Import `act` from `react` instead of `react-dom/test-utils`. See https://react.dev/warnings/react-dom-test-utils for more info.
+
+    [0m [90m 3 |[39m
+     [90m 4 |[39m test([32m'renderiza el título principal'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 5 |[39m   render([33m<[39m[33mApp[39m [33m/[39m[33m>[39m)[33m;[39m
+     [90m   |[39m         [31m[1m^[22m[39m
+     [90m 6 |[39m   expect(screen[33m.[39mgetByText([35m/One Night Werewolf/i[39m))[33m.[39mtoBeInTheDocument()[33m;[39m
+     [90m 7 |[39m })[33m;[39m
+     [90m 8 |[39m[0m
+
+      at printWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:71:30)
+      at error (node_modules/react-dom/cjs/react-dom-test-utils.development.js:45:7)
+      at actWithWarning (node_modules/react-dom/cjs/react-dom-test-utils.development.js:1736:7)
+      at node_modules/@testing-library/react/dist/act-compat.js:63:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:159:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:246:10)
+      at Object.<anonymous> (src/App.test.js:5:9)
+
+    console.log
+      🔧 App - Inicializando socket centralizado
+
+      at src/App.jsx:46:13
+
+    console.log
+      🔌 Creando nueva conexión socket...
+
+      at src/App.jsx:61:13
+
+    console.log
+      Estado del juego actualizado: {
+        phase: 'lobby',
+        gameState: null,
+        privateState: null,
+        isCurrentUserHost: undefined,
+        hostPlayer: undefined
+      }
+
+      at src/App.jsx:240:13
+
+    console.log
+      🧹 CLEANUP App - Desmontando aplicación
+
+      at src/App.jsx:212:15
+          at Array.forEach (<anonymous>)
+
+
+Test Suites: 2 passed, 2 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        4.052 s
+Ran all test suites related to changed files.
+
+^Cnpm error A complete log of this run can be found in: C:\Users\dylan\AppData\Local\npm-cache\_logs\2025-09-12T15_29_11_421Z-debug-0.log

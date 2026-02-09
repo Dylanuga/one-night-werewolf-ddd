@@ -3,17 +3,18 @@ import React, { useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const MasonPhase = ({ isMyTurn, nightActionData }) => {
-  const { currentTurn } = useGameStore();
+  const { privateState } = useGameStore();
   
   // DEBUG: Log cuando cambian props importantes
   useEffect(() => {
-    console.log('🔨 MasonPhase actualizada:', { 
+    console.log('🔨 MasonPhase actualizada (NUEVA ARQUITECTURA):', { 
       isMyTurn, 
       hasActionData: !!nightActionData,
-      currentTurn,
+      turn_timestamp: privateState?.turn_timestamp,
+      current_turn_role: privateState?.current_turn_role,
       actionType: nightActionData?.type
     });
-  }, [isMyTurn, nightActionData, currentTurn]);
+  }, [isMyTurn, nightActionData, privateState?.turn_timestamp]);
 
   if (!isMyTurn) {
     // Mostrar info del turno actual aunque no seas mason

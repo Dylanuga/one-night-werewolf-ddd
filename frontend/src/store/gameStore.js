@@ -189,7 +189,8 @@ export const useGameStore = create((set, get) => ({
       // Comparar todos los campos relevantes
       const criticalFields = [
         'phase', 'current_turn_role', 'is_your_turn', 'your_role',
-        'room_code', 'player_count', 'selected_roles_count'
+        'room_code', 'player_count', 'selected_roles_count',
+        'turn_timestamp'  // ✅ CRÍTICO: Detectar cambios de turno por timestamp
       ];
       
       // 🔍 DEBUG: Log detallado de comparación campo por campo
@@ -203,6 +204,16 @@ export const useGameStore = create((set, get) => ({
       
       const hasBasicChanges = criticalFields.some(field => current[field] !== state[field]);
       
+      // ✅ ESPECÍFICO: Detectar cambios de turno por timestamp incluso si otros campos son iguales
+      const isTurnChange = current.turn_timestamp !== state.turn_timestamp;
+      if (isTurnChange) {
+        console.log('🔄 CAMBIO DE TURNO DETECTADO por timestamp:', {
+          anterior: current.turn_timestamp,
+          nuevo: state.turn_timestamp,
+          rol: state.current_turn_role
+        });
+      }
+      
       // Comparar objetos complejos por referencia y contenido básico
       const hasActionChanges = current.night_action !== state.night_action || 
         (current.night_action && state.night_action && 
@@ -215,10 +226,11 @@ export const useGameStore = create((set, get) => ({
         hasBasicChanges,
         hasActionChanges,
         hasPlayerChanges,
-        totalChanges: hasBasicChanges || hasActionChanges || hasPlayerChanges
+        isTurnChange,
+        totalChanges: hasBasicChanges || hasActionChanges || hasPlayerChanges || isTurnChange
       });
       
-      if (!hasBasicChanges && !hasActionChanges && !hasPlayerChanges) {
+      if (!hasBasicChanges && !hasActionChanges && !hasPlayerChanges && !isTurnChange) {
         console.log('🔄 setPrivateState: Sin cambios detectados, ignorando');
         return;
       }

@@ -17,20 +17,32 @@ class GameService:
     def create_room(self, room_code: str, host_id: str, host_name: str, socket_id: str) -> bool:
         """Crea una nueva sala de juego"""
         try:
+            print(f"🏠 CREATE_ROOM INICIADO: {room_code}, host: {host_name} ({host_id})")
+            
             if self.room_repository.room_exists(room_code):
+                print(f"❌ CREATE_ROOM FALLÓ: Sala {room_code} ya existe")
                 return False
             
             game = GameLogic(room_code)
             success = game.add_player(host_id, host_name, socket_id, is_host=True)
             
             if success:
+                print(f"✅ Jugador host {host_name} añadido exitosamente")
                 self.room_repository.save_game(room_code, game)
+                print(f"✅ Sala {room_code} guardada en repository")
+                
+                print(f"📤 Enviando game_update para sala {room_code}")
                 self._emit_game_update(room_code)
+                print(f"✅ CREATE_ROOM COMPLETADO: {room_code}")
                 return True
+            else:
+                print(f"❌ CREATE_ROOM FALLÓ: No se pudo añadir jugador host")
+                return False
             
-            return False
         except Exception as e:
-            print(f"Error en create_room: {e}")
+            print(f"❌ ERROR en create_room: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def join_room(self, room_code: str, player_id: str, player_name: str, socket_id: str) -> bool:
@@ -183,39 +195,40 @@ class GameService:
     def _start_first_night_turn(self, room_code: str):
         """🔧 FIX: Inicia el primer turno nocturno"""
         try:
+            print(f"🔧 _start_first_night_turn INICIADO para sala {room_code}")
+            
             game = self.room_repository.get_game(room_code)
             if not game or game.phase != GamePhase.NIGHT_PHASE:
                 print(f"🔧 ERROR: Game no válido o no en night_phase")
                 return
             
             current_role = game.get_current_turn_role()
-            current_player = game.get_current_turn_player()
+            # 🔧 FIX: No usar get_current_turn_player() que no existe
             
-            print(f"🔧 PRIMER TURNO: role={current_role}, player={current_player}")
+            print(f"🔧 PRIMER TURNO: role={current_role}")
             
             if not current_role:
                 print(f"🔧 No hay turnos nocturnos, avanzando a día")
                 self._advance_to_day_phase(room_code)
                 return
             
-            # Emitir evento de inicio de turno
+            # ✅ ARQUITECTURA UNIFICADA: _emit_turn_start maneja todo
+            print(f"🔧 Emitiendo turn_start para rol: {current_role}")
             self._emit_turn_start(room_code, current_role)
             
             # 🔧 FIX: Iniciar timer automático para este turno
+            print(f"🔧 Iniciando timer para el turno")
             self._start_turn_timer(room_code)
             
-            # Si es turno de werewolf, emitir datos específicos
-            if current_role == 'werewolf':
-                print(f"🔧 EMITIENDO DATOS DE WEREWOLF")
-                self._emit_werewolf_turn_data(room_code)
-            elif current_role == 'mason':
-                print(f"🔧 EMITIENDO DATOS DE MASON")
-                self._emit_mason_turn_data(room_code)
+            # ❌ REMOVIDO: Ya no necesitamos emit específicos porque están unificados en _emit_turn_start
+            # Los datos de werewolf/mason se manejan dentro de _emit_turn_start
             
-            print(f"🔧 PRIMER TURNO INICIADO CORRECTAMENTE")
+            print(f"🔧 PRIMER TURNO INICIADO CORRECTAMENTE para rol: {current_role}")
             
         except Exception as e:
-            print(f"Error en _start_first_night_turn: {e}")
+            print(f"❌ Error en _start_first_night_turn: {e}")
+            import traceback
+            traceback.print_exc()
 
     def execute_night_action(self, room_code: str, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
         """Un jugador ejecuta su acción nocturna"""
@@ -246,21 +259,29 @@ class GameService:
     def _emit_game_update(self, room_code: str):
         """Emite actualización del estado del juego a todos los jugadores"""
         try:
+            print(f"📤 _emit_game_update INICIADO para sala {room_code}")
+            
             game = self.room_repository.get_game(room_code)
             if not game:
+                print(f"❌ _emit_game_update: No se encontró juego para {room_code}")
                 return
             
             public_state = game.get_public_state()
+            print(f"📊 Enviando game_update a toda la sala {room_code}")
+            print(f"   Estado público: {len(public_state.get('players', []))} jugadores, fase: {public_state.get('phase')}")
             self.emit_callback('game_update', public_state, room=room_code)
             
             # 🔧 FIX: Verificar si hay un turno activo para reenviar datos
             current_turn_role = game.get_current_turn_role()
-            current_turn_player = game.get_current_turn_player()
+            # No necesitamos current_turn_player, solo current_turn_role
             
+            print(f"👥 Enviando private_update a {len(game.players)} jugadores individuales")
             for player_id, player in game.players.items():
                 if player.is_connected and player.socket_id:
                     try:
+                        print(f"   📤 Enviando private_update a {player.name} ({player_id})")
                         private_state = game.get_private_state_for_player(player_id)
+                        print(f"      Estado privado: fase={private_state.get('phase')}, rol={private_state.get('your_role', 'sin_rol')}")
                         
                         # 🔧 FIX: Si estamos en turno de werewolf y este jugador es werewolf
                         if (current_turn_role == 'werewolf' and 
@@ -306,44 +327,76 @@ class GameService:
                         
                         # Emisión normal
                         self.emit_callback('private_update', private_state, room=player.socket_id)
+                        print(f"      ✅ private_update enviado a {player.name}")
                         
                     except Exception as player_error:
-                        print(f"Error emitiendo a jugador {player_id}: {player_error}")
+                        print(f"❌ Error emitiendo a jugador {player_id}: {player_error}")
+                        import traceback
+                        traceback.print_exc()
                         continue
                         
+            print(f"✅ _emit_game_update COMPLETADO para sala {room_code}")
         except Exception as e:
-            print(f"Error en _emit_game_update: {e}")
+            print(f"❌ Error en _emit_game_update: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _emit_turn_start(self, room_code: str, role: str):
-        """🔧 FIX MEJORADO: Emite el evento de inicio de turno de manera robusta"""
+        """🔧 FIX ARQUITECTURAL: Emite el evento de inicio de turno Y actualiza estados privados de manera unificada"""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
                 print(f"❌ No se encontró juego para emitir turn_start: {room_code}")
                 return
             
+            # Crear timestamp único para este turno
+            turn_timestamp = time.time()
+            
             # Emitir a toda la sala que comenzó el turno de un rol
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
                 'duration': self.TURN_DURATION,
-                'timestamp': time.time()  # Añadir timestamp para identificar el evento
+                'timestamp': turn_timestamp
             }
             
-            print(f"🔧 EMITIENDO TURN_START: {turn_data}")
+            print(f"🔧 EMITIENDO TURN_START UNIFICADO: {turn_data}")
             
-            # Emitir a toda la sala
+            # 1. Emitir turn_start a toda la sala (para UI)
             self.emit_callback('turn_start', turn_data, room=room_code)
             
-            # Además, asegurarnos de que cada jugador reciba la actualización
-            # directamente, como respaldo en caso de problemas de broadcast
+            # 2. CRÍTICO: Actualizar inmediatamente los estados privados de todos los jugadores
+            # Esto elimina el race condition entre turn_start y private_update
             for player_id, player in game.players.items():
-                if player.socket_id:
+                if player.is_connected and player.socket_id:
                     try:
-                        print(f"🔄 Enviando turn_start directo a: {player_id}")
-                        self.emit_callback('turn_start', turn_data, room=player.socket_id)
-                    except Exception as e:
-                        print(f"⚠️ Error enviando turn_start a {player_id}: {str(e)}")
+                        # Obtener estado privado actualizado con el nuevo turno
+                        private_state = game.get_private_state_for_player(player_id)
+                        
+                        # CRÍTICO: Añadir el timestamp del turno para detectar cambios
+                        private_state['turn_timestamp'] = turn_timestamp
+                        private_state['current_turn_role'] = role
+                        
+                        # Determinar si es el turno de este jugador
+                        player_role = player.get_role_name()
+                        private_state['is_your_turn'] = (player_role == role)
+                        
+                        # Si es su turno, añadir datos de night_action
+                        if private_state['is_your_turn']:
+                            night_action_data = game.get_night_action_data_for_player(player_id)
+                            if night_action_data:
+                                private_state['night_action'] = night_action_data
+                        
+                        print(f"� EMITIENDO PRIVATE_UPDATE UNIFICADO a {player_id} ({player_role}): is_your_turn={private_state['is_your_turn']}")
+                        
+                        # Emitir private_update con datos completos y timestamp
+                        self.emit_callback('private_update', private_state, room=player.socket_id)
+                        
+                    except Exception as player_error:
+                        print(f"⚠️ Error emitiendo private_update unificado a {player_id}: {str(player_error)}")
+                        continue
+            
+            print(f"✅ TURN_START UNIFICADO COMPLETADO para rol: {role}")
             
         except Exception as e:
             print(f"Error en _emit_turn_start: {e}")
@@ -558,17 +611,15 @@ class GameService:
             if game.phase == GamePhase.DAY_PHASE:
                 print(f"🌞 NOCHE TERMINADA - AVANZANDO A FASE DE DÍA")
                 
-                # Enviar actualizaciones a todos los jugadores
+                # ✅ ARQUITECTURA UNIFICADA: Solo usar _emit_game_update que ya incluye private_update para todos
+                print(f"📤 Enviando actualizaciones unificadas tras finalizar noche")
                 self._emit_game_update(room_code)
-                
-                # Enviar actualizaciones privadas a cada jugador con mayor prioridad
-                for player_id in game.players:
-                    self._emit_private_update(room_code, player_id)
                     
                 # Pequeña pausa para asegurar que los clientes reciban las actualizaciones
                 time.sleep(0.1)
                 
                 # Avanzar a la fase de día
+                print(f"🌞 Avanzando a fase de día")
                 self._advance_to_day_phase(room_code)
             else:
                 # Continuar con el siguiente turno
@@ -579,24 +630,14 @@ class GameService:
                     print(f"⚠️ ERROR: Rol actual es None después de avanzar turno")
                     return
                 
-                # Primero enviar el evento de nuevo turno (prioridad más alta)
+                # ✅ ARQUITECTURA UNIFICADA: _emit_turn_start ahora maneja TODO
+                # (turn_start + private_update + night_action data)
                 self._emit_turn_start(room_code, current_role)
                 
-                # Pequeña pausa para asegurar que los clientes reciban el evento turn_start
-                time.sleep(0.1)
-                
-                # Luego enviar actualizaciones a todos los jugadores
-                self._emit_game_update(room_code)
-                
-                # Enviar actualizaciones privadas a cada jugador
-                for player_id in game.players:
-                    self._emit_private_update(room_code, player_id)
-                
-                # Enviar datos específicos del rol (si son necesarios)
-                if current_role == 'werewolf':
-                    self._emit_werewolf_turn_data(room_code)
-                elif current_role == 'mason':
-                    self._emit_mason_turn_data(room_code)
+                # ❌ REMOVIDO: Ya no necesitamos emit separados porque están unificados
+                # self._emit_game_update(room_code)  # Redundante
+                # self._emit_werewolf_turn_data()    # Redundante, ya incluido en _emit_turn_start
+                # self._emit_mason_turn_data()       # Redundante, ya incluido en _emit_turn_start
                 
                 # Iniciar timer para el siguiente turno (después de todo lo demás)
                 self._start_turn_timer(room_code)

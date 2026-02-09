@@ -1,5 +1,5 @@
-// src/components/NightPhase.jsx
-import React, { useEffect } from 'react';
+// src/components/NightPhase.jsx - VERSIÓN OPTIMIZADA
+import React, { useEffect, useMemo } from 'react';
 import { Eye } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { ROLES } from '../utils/constants';
@@ -11,41 +11,51 @@ import {
   ActionResult 
 } from './night-phases';
 
-export const NightPhase = () => {
+export const NightPhase = React.memo(() => {
   const {
     gameState,
     privateState,
-    nightAction,
-    setNightAction,
-    actionResult,
-    currentTurn
+    getCurrentTurnRole,
+    isMyTurn,
+    getNightAction,
+    getEffectiveActionResult
   } = useGameStore();
 
-  // 🔧 FIX MEJORADO: Usar tanto currentTurn como privateState para mayor robustez
+  // ✅ NUEVA ARQUITECTURA: Datos desde privateState con turn_timestamp
   const myRole = privateState?.your_role;
-  // Preferir currentTurn.role si está disponible, sino usar privateState
-  const currentTurnRole = currentTurn?.role || privateState?.current_turn_role;
-  const isMyTurn = privateState?.is_your_turn;
-  const nightActionData = privateState?.night_action || nightAction;
-
-  // Limpiar nightAction cuando deja de ser tu turno
-  useEffect(() => {
-    if (!isMyTurn && nightAction) {
-      setNightAction(null);
+  const currentTurnRole = getCurrentTurnRole();
+  const isCurrentUserTurn = isMyTurn();
+  const nightActionData = getNightAction();
+  const actionResult = getEffectiveActionResult();
+  
+  // ✅ CRÍTICO: Crear currentTurn desde privateState para PhaseTimer
+  const currentTurnDisplay = useMemo(() => {
+    if (!privateState?.current_turn_role || !privateState?.turn_timestamp) {
+      return null;
     }
-  }, [isMyTurn, nightAction, setNightAction]);
+    
+    return {
+      role: privateState.current_turn_role,
+      phase: `Fase: ${privateState.current_turn_role}`,
+      timestamp: privateState.turn_timestamp,
+      duration: 6  // TURN_DURATION
+    };
+  }, [privateState?.current_turn_role, privateState?.turn_timestamp]);
 
-  // DEBUG: Detectar cambios en el turno actual
+  // ✅ OPTIMIZACIÓN: Un solo efecto simplificado para debugging
   useEffect(() => {
-    console.log('🔄 NightPhase - Cambio detectado:', {
-      currentTurn,
-      fromStore: currentTurn?.role,
-      fromPrivate: privateState?.current_turn_role,
-      usingRole: currentTurnRole,
-      isMyTurn
+    console.log('🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA):', {
+      currentTurnRole,
+      isCurrentUserTurn,
+      hasNightAction: !!nightActionData,
+      hasActionResult: !!actionResult,
+      turn_timestamp: privateState?.turn_timestamp,
+      currentTurnDisplay,
+      timestamp: Date.now()
     });
-  }, [currentTurn, privateState, currentTurnRole, isMyTurn]);
+  }, [currentTurnRole, isCurrentUserTurn, privateState?.turn_timestamp]);
 
+  // ✅ OPTIMIZACIÓN: Función de render estable sin useMemo/useCallback
   const renderCurrentPhaseInfo = () => {
     if (!currentTurnRole) {
       return (
@@ -59,7 +69,7 @@ export const NightPhase = () => {
 
     return (
       <div className={`rounded-lg p-6 border ${
-        isMyTurn 
+        isCurrentUserTurn 
           ? 'bg-yellow-900/30 border-yellow-500' 
           : 'bg-slate-800 border-slate-600'
       }`}>
@@ -70,14 +80,14 @@ export const NightPhase = () => {
               <h3 className="text-xl font-bold text-white">
                 Fase: {currentTurnRole}
               </h3>
-              {isMyTurn && (
+              {isCurrentUserTurn && (
                 <p className="text-yellow-400 font-medium">¡Es tu turno!</p>
               )}
             </div>
           </div>
-          <PhaseTimer currentTurnRole={currentTurnRole} isMyTurn={isMyTurn} />
+          <PhaseTimer currentTurn={currentTurnDisplay} isMyTurn={isCurrentUserTurn} />
         </div>
-
+        
         {roleInfo && (
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
@@ -85,7 +95,7 @@ export const NightPhase = () => {
         {/* Renderizar componente específico según el rol */}
         {currentTurnRole === 'werewolf' && (
           <WerewolfPhase 
-            isMyTurn={isMyTurn} 
+            isMyTurn={isCurrentUserTurn} 
             nightActionData={nightActionData} 
             actionResult={actionResult} 
           />
@@ -93,7 +103,7 @@ export const NightPhase = () => {
         
         {currentTurnRole === 'mason' && (
           <MasonPhase 
-            isMyTurn={isMyTurn} 
+            isMyTurn={isCurrentUserTurn} 
             nightActionData={nightActionData} 
           />
         )}
@@ -101,7 +111,7 @@ export const NightPhase = () => {
         {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
-            isMyTurn={isMyTurn} 
+            isMyTurn={isCurrentUserTurn} 
           />
         )}
 
@@ -150,7 +160,7 @@ export const NightPhase = () => {
             Información:
           </h4>
           <div className="text-slate-300 text-sm space-y-1">
-            {isMyTurn ? (
+            {isCurrentUserTurn ? (
               <p>🎯 Es tu turno.</p>
             ) : (
               <p>⏱️ Esperando turno de: {currentTurnRole}</p>
@@ -171,4 +181,4 @@ export const NightPhase = () => {
       </div>
     </div>
   );
-};
+});

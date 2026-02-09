@@ -188,9 +188,25 @@ def emit_callback(event: str, data: Any, room: str = None):
         # 🔍 DEBUG: Log detallado de emisiones
         if event == 'turn_start':
             print(f"📡 EMIT_CALLBACK - ENVIANDO {event} a room {room}: {data}")
+            
+            # 🔍 DEBUG: Verificar qué sockets están en la sala
+            if room:
+                try:
+                    room_sockets = list(socketio.server.manager.get_participants('/', room))
+                    print(f"📡 SOCKETS EN SALA {room}: {room_sockets}")
+                    print(f"📡 CANTIDAD DE SOCKETS EN SALA {room}: {len(room_sockets)}")
+                except Exception as e:
+                    print(f"📡 ERROR AL OBTENER SOCKETS DE SALA {room}: {e}")
+                    # Fallback: usar métodos alternativos
+                    try:
+                        room_data = socketio.server.manager.rooms.get('/', {}).get(room, set())
+                        print(f"📡 SOCKETS EN SALA {room} (fallback): {list(room_data)}")
+                    except Exception as e2:
+                        print(f"📡 ERROR EN FALLBACK: {e2}")
         
         if room:
-            result = socketio.emit(event, data, room=room)
+            # 🔧 FIX: Usar to= en lugar de room= para mayor compatibilidad
+            result = socketio.emit(event, data, to=room)
             if event == 'turn_start':
                 print(f"📡 EMIT_CALLBACK - RESULTADO socketio.emit: {result}")
         else:

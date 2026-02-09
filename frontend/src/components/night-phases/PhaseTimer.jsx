@@ -2,76 +2,91 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import { TURN_DURATION } from '../../utils/constants';
-import { useGameStore } from '../../store/gameStore';
 
-export const PhaseTimer = ({ currentTurnRole, isMyTurn }) => {
-  const { addLog } = useGameStore();
+export const PhaseTimer = ({ currentTurn, isMyTurn }) => {
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const timerRef = useRef(null);
-  const timerExpiredRef = useRef(false);
-  const roleRef = useRef(currentTurnRole);
+  const startTimeRef = useRef(null);
 
-  // Reset timer cuando cambia el turno
+  // ✅ FIX CRÍTICO: Timer puramente visual sincronizado con el servidor
   useEffect(() => {
-    console.log('⏱️ PhaseTimer - Nuevo turno:', currentTurnRole);
-    
-    // Si el rol cambió, registrar en el log
-    if (roleRef.current !== currentTurnRole && currentTurnRole) {
-      console.log(`⏱️ PhaseTimer - Cambio de rol: ${roleRef.current || 'ninguno'} → ${currentTurnRole}`);
-      roleRef.current = currentTurnRole;
+    console.log('⏰ PhaseTimer - Nuevo currentTurn:', {
+      currentTurn,
+      timestamp: currentTurn?.timestamp,
+      role: currentTurn?.role
+    });
+
+    // Limpiar timer anterior
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-    
-    if (currentTurnRole) {
-      // Reiniciar el timer completamente
-      setTimeLeft(TURN_DURATION);
-      timerExpiredRef.current = false;
+
+    if (currentTurn?.timestamp) {
+      const serverStartTime = currentTurn.timestamp * 1000;
+      startTimeRef.current = serverStartTime;
       
-      // Limpiar cualquier timer existente
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      // Calcular tiempo inicial basado en timestamp del servidor
+      const now = Date.now();
+      const elapsed = Math.floor((now - serverStartTime) / 1000);
+      const initialTime = Math.max(0, TURN_DURATION - elapsed);
       
-      // Iniciar un nuevo timer de cuenta regresiva
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
+      console.log('⏰ PhaseTimer - Calculando tiempo:', {
+        elapsed,
+        initialTime,
+        TURN_DURATION
+      });
+      
+      setTimeLeft(initialTime);
+
+      // Solo iniciar timer si queda tiempo
+      if (initialTime > 0) {
+        console.log('⏰ PhaseTimer - Iniciando countdown visual');
+        
+        timerRef.current = setInterval(() => {
+          const currentTime = Date.now();
+          const totalElapsed = Math.floor((currentTime - serverStartTime) / 1000);
+          const remaining = Math.max(0, TURN_DURATION - totalElapsed);
+          
+          setTimeLeft(remaining);
+          
+          if (remaining === 0) {
+            console.log('⏰ PhaseTimer - Countdown terminado');
             clearInterval(timerRef.current);
             timerRef.current = null;
-            timerExpiredRef.current = true;
-            console.log('⏱️ PhaseTimer - Tiempo expirado para:', currentTurnRole);
-            
-            // Añadir al log cuando expira el tiempo
-            addLog(`⏱️ Tiempo agotado para ${currentTurnRole}`);
-            
-            return 0;
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }, 1000);
+      } else {
+        console.log('⏰ PhaseTimer - Sin tiempo restante');
+        setTimeLeft(0);
+      }
+    } else {
+      console.log('⏰ PhaseTimer - Sin timestamp, reseteando');
+      setTimeLeft(TURN_DURATION);
     }
 
-    // Limpiar el timer cuando se desmonta el componente o cambia el turno
+    // Cleanup
     return () => {
       if (timerRef.current) {
-        console.log('⏱️ PhaseTimer - Limpiando timer para:', currentTurnRole);
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [currentTurnRole, addLog]);
+  }, [currentTurn?.timestamp, currentTurn?.role]); // ✅ Dependencias específicas
 
   // Aplicar clases de CSS según el tiempo restante
   const getTimerClasses = () => {
     if (timeLeft === 0) return 'text-red-400';
     if (timeLeft <= 2) return 'text-orange-400';
-    return '';
+    return 'text-white';
   };
 
   return (
-    <div className="flex items-center gap-2 text-white">
-      <Clock size={20} className={timeLeft <= 2 ? 'animate-pulse' : ''} />
-      <span className={`font-bold text-lg ${getTimerClasses()}`}>{timeLeft}s</span>
+    <div className="flex items-center gap-2">
+      <Clock size={20} className={timeLeft <= 2 ? 'animate-pulse text-orange-400' : 'text-white'} />
+      <span className={`font-bold text-lg ${getTimerClasses()}`}>
+        {timeLeft}s
+      </span>
     </div>
   );
 };

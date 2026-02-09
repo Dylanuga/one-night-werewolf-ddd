@@ -27,6 +27,15 @@ class Role(ABC):
         """Define el orden de turnos en la noche"""
         pass
     
+    def can_act_at_night(self) -> bool:
+        """Determina si este rol tiene acciones nocturnas"""
+        # Por defecto, los roles con turn_order < 999 pueden actuar
+        return self.get_turn_order() < 999
+    
+    def get_turn_order(self) -> int:
+        """Retorna el orden de turno de este rol"""
+        return self.turn_order
+    
     @abstractmethod
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Retorna los datos que necesita ver el jugador en su turno nocturno"""

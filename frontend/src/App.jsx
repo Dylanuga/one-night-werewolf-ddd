@@ -78,7 +78,7 @@ function App() {
     // Eventos básicos de conexión
     socket.on('connect', () => {
       console.log('🔗 SOCKET CONECTADO:', socket.id);
-      console.log('🔍 Listeners registrados después de conectar:', socket.eventNames());
+      console.log('🔍 Socket conectado exitosamente');
       setConnectionStatus(true);
     });
 
@@ -114,7 +114,7 @@ function App() {
     const heartbeatInterval = setInterval(() => {
       if (socket.connected) {
         console.log('💓 Heartbeat - Socket conectado, enviando ping...');
-        console.log('🔍 Listeners activos:', socket.eventNames());
+        console.log('🔍 Socket status:', { connected: socket.connected, id: socket.id });
         socket.emit('ping', { timestamp: Date.now() });
       } else {
         console.log('💔 Heartbeat - Socket DESCONECTADO');
@@ -156,7 +156,15 @@ function App() {
     // Eventos de sala
     socket.on(SOCKET_EVENTS.ROOM_CREATED, (data) => {
       console.log('🏠 Sala creada:', data.room_code);
+      console.log('🔍 Datos completos del evento room_created:', data);
+      console.log('🔍 Estado actual del store antes de room_created:', {
+        gameState: useGameStore.getState().gameState,
+        privateState: useGameStore.getState().privateState
+      });
       addLog(`Sala ${data.room_code} creada`);
+      
+      // 🔧 NUEVO: Aguardar los eventos private_update y game_update que deberían llegar después
+      console.log('⏳ Esperando eventos game_update y private_update...');
     });
 
     socket.on(SOCKET_EVENTS.ROOM_JOINED, (data) => {
@@ -196,40 +204,67 @@ function App() {
     });
 
     socket.on(SOCKET_EVENTS.GAME_UPDATE, (data) => {
-      console.log('🔄 Actualización del juego:', data);
-      console.log('🔧 Verificando si GAME_UPDATE causa problemas:', {
+      console.log('🔄 Actualización del juego recibida:', data);
+      console.log('� Timestamp del evento game_update:', Date.now());
+      console.log('�🔧 Verificando si GAME_UPDATE causa problemas:', {
         dataPhase: data?.phase,
         socketConnected: socket.connected,
         timestamp: Date.now()
       });
+      console.log('🔍 Estado previo antes de aplicar game_update:', {
+        gameState: useGameStore.getState().gameState,
+        privateState: useGameStore.getState().privateState
+      });
+      
       setGameState(data);
+      
+      setTimeout(() => {
+        console.log('[DEBUG] Estado final del store después de game_update:', {
+          gameState: useGameStore.getState().gameState,
+          privateState: useGameStore.getState().privateState
+        });
+      }, 0);
     });
 
     socket.on(SOCKET_EVENTS.PRIVATE_UPDATE, (data) => {
-      console.log('🔐 Actualización privada:', data);
+      console.log('🔐 Actualización privada recibida:', data);
+      console.log('🔍 Timestamp del evento private_update:', Date.now());
+      console.log('🔍 Estado previo antes de aplicar private_update:', {
+        gameState: useGameStore.getState().gameState,
+        privateState: useGameStore.getState().privateState
+      });
+      
       setPrivateState(data);
       // Si gameState es null (ej: tras crear sala o unirse), inicializarlo con privateState
       if (!useGameStore.getState().gameState) {
+        console.log('🔧 gameState es null, inicializando con privateState');
         setGameState(data);
       }
+      
       // Log extra para depuración
       setTimeout(() => {
-        console.log('[DEBUG] Nuevo privateState:', data);
+        console.log('[DEBUG] Nuevo privateState aplicado:', data);
+        console.log('[DEBUG] Estado final del store después de private_update:', {
+          gameState: useGameStore.getState().gameState,
+          privateState: useGameStore.getState().privateState
+        });
       }, 0);
     });
 
     socket.on(SOCKET_EVENTS.TURN_START, (data) => {
       console.log('⏰ Inicio de turno recibido:', data);
       
-      // 🔍 DEBUG: Verificar que el listener sigue funcionando
+      // ✅ ARQUITECTURA UNIFICADA: TURN_START ahora es solo para UI visual
+      // Los datos funcionales (privateState) llegan via PRIVATE_UPDATE unificado
+      // No hay race condition porque el backend envía ambos de manera atómica
+      
       console.log('🔍 TURN_START listener - FUNCIONANDO para rol:', data.role);
-      console.log('🔍 Listeners actuales en socket:', socket.eventNames());
+      console.log('🔍 Socket conectado:', socket.connected);
       
       // Registrar recepción del evento con su timestamp
       const currentTime = new Date().toISOString();
       console.log(`⏰ [${currentTime}] TURN_START recibido para rol: ${data.role}`);
       
-      // 🔧 NUEVO: Verificar conectividad y estado actual
       console.log(`🔧 Estado del socket: conectado=${socket.connected}, id=${socket.id}`);
       console.log(`🔧 Estado actual antes del cambio:`, {
         currentTurnRole: useGameStore.getState().privateState?.current_turn_role,

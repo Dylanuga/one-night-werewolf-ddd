@@ -1,34 +1,37 @@
-// src/components/night-phases/WerewolfPhase.jsx
-import React, { useState, useEffect } from 'react';
+// src/components/night-phases/WerewolfPhase.jsx - VERSIÓN OPTIMIZADA
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction, currentTurn } = useGameStore();
+  const { executeNightAction } = useGameStore();
   const [hasActed, setHasActed] = useState(false);
 
-  // Resetear hasActed cuando no es mi turno
+  // ✅ OPTIMIZADO: Efecto simple para resetear estado
   useEffect(() => {
-    if (!isMyTurn) {
+    if (!isMyTurn && hasActed) {
       setHasActed(false);
     }
-  }, [isMyTurn]);
+  }, [isMyTurn, hasActed]);
 
-  // DEBUG: Log cuando cambian props importantes
+  // ✅ OPTIMIZADO: Efecto simple para detectar acción completada
   useEffect(() => {
-    console.log('🐺 WerewolfPhase actualizada:', { 
-      isMyTurn, 
-      hasActionData: !!nightActionData,
-      currentTurn,
-      actionType: nightActionData?.type
-    });
-  }, [isMyTurn, nightActionData, currentTurn]);
+    if (actionResult && !hasActed) {
+      setHasActed(true);
+    }
+  }, [actionResult, hasActed]);
 
-  const handleCenterCardClick = (position) => {
-    if (!isMyTurn || hasActed) return;
+  // ✅ OPTIMIZADO: Handler estable
+  const handleCenterCardClick = useCallback((position) => {
+    if (!isMyTurn || hasActed) {
+      return;
+    }
     
-    executeNightAction({ center_position: position });
-    setHasActed(true);
-  };
+    const success = executeNightAction({ center_position: position });
+    
+    if (success) {
+      setHasActed(true);
+    }
+  }, [isMyTurn, hasActed, executeNightAction]);
 
   if (!isMyTurn) {
     // Mostrar info del turno actual aunque no seas lobo

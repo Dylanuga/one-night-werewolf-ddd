@@ -1,128 +1,57 @@
-# One Night Werewolf DDD - AI Agent Instructions
 
-## Project Overview
-This is a real-time multiplayer web implementation of "One Night Ultimate Werewolf" using **Domain-Driven Design (DDD)** principles. Players receive secret roles, perform night actions, then vote to eliminate werewolves.
+# One Night Werewolf DDD — AI Coding Agent Guide
 
-## Architecture & Key Patterns
+## Visión General y Arquitectura
+Juego multijugador en tiempo real basado en "One Night Ultimate Werewolf". Arquitectura DDD estricta: backend en Python (Flask-SocketIO), frontend en React con Zustand. Separación clara de lógica de dominio, infraestructura y servicios.
 
-### Backend - Strict DDD Layers
-- **Domain** (`backend/domain/`): Pure business logic with NO external dependencies
-  - `game_logic.py`: Core game orchestration, phase management, turn ordering
-  - `player.py`: Player entity with role assignment and actions
-  - `roles.py`: Role-specific behavior using Factory pattern
-- **Services** (`backend/services/`): Application coordination layer
-  - `game_service.py`: Orchestrates domain logic, handles WebSocket emissions
-- **Infrastructure** (`backend/infrastructure/`): External concerns
-  - `room_repository.py`: In-memory game state persistence
-- **Main** (`backend/main/`): Entry point with Flask-SocketIO setup
+### Backend (Python, DDD)
+- `backend/domain/`: Lógica de juego pura (sin dependencias externas). Ejemplo: `game_logic.py` (fases, turnos), `roles.py` (patrón Factory para roles), `player.py` (entidad jugador).
+- `backend/services/`: Orquestación y coordinación de dominio, nunca lógica de negocio. Ejemplo: `game_service.py` (emisión de eventos, timers).
+- `backend/infrastructure/`: Persistencia y adaptadores externos. Ejemplo: `room_repository.py` (estado en memoria).
+- `backend/main/`: Entrada de la app, configuración Flask-SocketIO. Ejemplo: `app.py` (handlers de eventos, validaciones de roles).
 
-### Frontend - React + Zustand State Management
-- **Store** (`frontend/src/store/gameStore.js`): Zustand global state with computed getters
-- **Hooks** (`frontend/src/hooks/useSocket.js`): WebSocket communication abstraction
-- **Components**: Phase-specific UI components with real-time updates
+### Frontend (React + Zustand)
+- `frontend/src/store/gameStore.js`: Estado global (Zustand), getters computados, limpieza automática de estados temporales.
+- `frontend/src/hooks/useSocket.js`: Abstracción de WebSocket, maneja reconexión y sincronización.
+- `frontend/src/components/`: UI por fases, componentes para cada rol y fase.
 
-## Critical Development Patterns
+## Patrones y Flujos Críticos
 
-### 1. Domain-Driven Design Rules
-- **Never** put business logic in infrastructure or UI layers
-- All game rules belong in `domain/` - roles, turn order, win conditions
-- Use `game_service.py` only for coordination, not business logic
-- Repository interfaces are defined in domain, implemented in infrastructure
+### 1. DDD Estricto
+- Toda la lógica de reglas va en `domain/`. Nunca mezclar lógica de negocio en infraestructura, servicios o UI.
+- `game_service.py` solo coordina, no implementa reglas.
+- Validaciones de roles y fases en `app.py`.
 
-### 2. WebSocket Communication Flow
-```
-Frontend (useSocket) → SocketIO Events → app.py → game_service.py → domain/game_logic.py
-                    ← emit_callback    ← room updates ← state changes ← business logic
-```
+### 2. Comunicación WebSocket
+Flujo: Frontend (useSocket) ⇄ SocketIO ⇄ `app.py` ⇄ `game_service.py` ⇄ `game_logic.py`.
+- Cambios de estado: `socketio.emit(event, data, room=room_code)`.
+- Datos privados: `emit('private_update', player_state)`.
+- Eventos clave definidos en `utils/constants.js` y sincronizados en frontend/backend.
 
-**Key Events Pattern:**
-- All game state changes emit to entire room: `socketio.emit(event, data, room=room_code)`
-- Private data uses player-specific emissions: `emit('private_update', player_state)`
-- Frontend automatically syncs via `SOCKET_EVENTS` constants
+### 3. Identidad y Reconexión de Jugadores
+- ID estable: `player_{room_code}_{player_name}` (sin espacios).
+- El estado y rol persisten tras reconexión; el mapeo socket ID es independiente.
 
-### 3. Player Identity & Reconnection System
-**CRITICAL**: Uses stable player IDs for reconnection:
-```python
-player_id = f"player_{room_code}_{player_name}".replace(" ", "_")
-```
-- Players maintain identity across disconnections
-- Roles and game state persist during reconnections
-- Socket ID mapping separate from game identity
+### 4. Testing y Debug
+- Endpoints de test en backend: `/test/create-test-room`, `/test/status`, `/test/advance-turn`.
+- Permiten roles fijos y avance manual de turnos para pruebas deterministas.
+- Usa archivos como `test_domain.py`, `test_masones.py` para pruebas unitarias.
 
-### 4. State Management Patterns
-**Zustand Store** (`gameStore.js`):
-- `gameState`: Public room state (all players)
-- `privateState`: Player-specific data (role, actions)
-- Computed getters with fallback logic: `gameState || privateState`
-- Auto-cleanup for temporary states (errors, action results)
+### 5. Workflows de Desarrollo
+- Backend: `cd backend && python run.py`
+- Frontend: `cd frontend && npm start`
+- Añadir rol: define clase en `roles.py`, agrega a `RoleFactory`, implementa UI en `components/night-phases/`, valida en `app.py`.
 
-### 5. Testing Infrastructure
-**Test Mode Commands:**
-```bash
-# Create test room with specific roles
-POST /test/create-test-room
-{
-  "role_distribution": {
-    "players": ["werewolf", "mason", "mason", "villager"],
-    "center": ["villager", "seer", "robber"]
-  },
-  "auto_start": true
-}
+### 6. Convenciones y Errores Comunes
+- Roles = jugadores + 3 (centro). Validar antes de iniciar partida.
+- Tras reconexión, siempre emitir `private_update`.
+- No mezclar lógica de UI/persistencia en `domain/`.
+- Usa presets de test para pruebas controladas.
 
-# Check test status
-GET /test/status
+## Ejemplos de Modificación
+- Lógica de dominio: `backend/domain/`, prueba con endpoints `/test/`.
+- UI: `frontend/src/components/`, estado en `gameStore.js`.
+- Comunicación: nuevos eventos en `utils/constants.js` y `app.py`.
 
-# Advance turns manually
-POST /test/advance-turn
-```
-
-## Development Workflows
-
-### Running the Application
-```bash
-# Backend
-cd backend && python run.py
-
-# Frontend  
-cd frontend && npm start
-```
-
-### Adding New Roles
-1. Define role class in `backend/domain/roles.py` with `turn_order` and `execute_action()`
-2. Add to `RoleFactory.create_role()` method
-3. Implement frontend UI in `components/night-phases/`
-4. Add to role validation in `app.py`
-
-### Phase Management
-Game phases follow strict order: `LOBBY → ROLE_SELECTION → NIGHT_PHASE → DAY_PHASE → VOTING → GAME_END`
-- Turn advancement is automatic via `game_logic.advance_night_turn()`
-- Night phases use role-specific `turn_order` for sequencing
-- Timer system in `game_service.py` manages phase transitions
-
-## Common Pitfalls & Solutions
-
-### WebSocket State Sync
-- **Problem**: Frontend shows stale state after reconnection
-- **Solution**: Always emit `private_update` after reconnection in `join_room` handler
-
-### Role Distribution
-- **Problem**: Roles must equal `player_count + 3` (center cards)
-- **Solution**: Validate in `set_selected_roles()` before game start
-
-### Test Mode Debugging
-- **Problem**: Need controlled role assignment for testing
-- **Solution**: Use `test_role_distribution` in `game_logic.py` to override random shuffling
-
-### DDD Boundary Violations
-- **Problem**: Temptation to add database/UI logic to domain
-- **Solution**: Keep `domain/` pure - use dependency injection through `game_service.py`
-
-## File Modification Patterns
-
-When editing:
-- **Domain logic**: Modify `backend/domain/` files, test with `/test/` endpoints
-- **UI features**: Update React components + corresponding `gameStore.js` state
-- **Communication**: Add new events to `utils/constants.js` and `app.py`
-- **Testing**: Use predefined test configurations from `/test/presets`
-
-This architecture emphasizes clean separation of concerns, real-time communication, and maintainable domain logic. Always preserve the DDD boundaries and test critical flows using the built-in test infrastructure.
+---
+¿Falta algún flujo, convención o integración relevante? Indica qué parte es poco clara o incompleta para iterar y mejorar la guía.

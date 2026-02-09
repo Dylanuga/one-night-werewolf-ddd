@@ -162,65 +162,28 @@ class GameLogic:
         return True
     
     def _calculate_night_turns(self) -> List[str]:
-        """Calcula el orden de turnos nocturnos basado en los roles seleccionados y presentes"""
-        players_with_turns = []
+        """Calcula el orden de turnos nocturnos basado en roles únicos con acciones."""
+        roles_in_play = {p.get_role_name() for p in self.players.values()} \
+                        .union(set(self.center_cards))
+
+        roles_with_turns = {}
+        for role_name in roles_in_play:
+            role_instance = RoleFactory.create_role(role_name)
+            if role_instance and role_instance.can_act_at_night():
+                roles_with_turns[role_name] = role_instance.get_turn_order()
+
+        # Ordenar los roles por su número de turno
+        sorted_roles = sorted(roles_with_turns.items(), key=lambda item: item[1])
         
-        # Solo incluir jugadores cuyos roles están en selected_roles y pueden actuar de noche
-        for player_id, player in self.players.items():
-            player_role = player.get_role_name()
-            
-            # ✅ FILTRO: Solo incluir si el rol está en selected_roles Y puede actuar de noche
-            if (player_role in self.selected_roles and 
-                player.can_act_at_night()):
-                players_with_turns.append((player_id, player.get_turn_order()))
-                print(f"🔧 AÑADIENDO TURNO: {player_id} ({player_role}) - orden {player.get_turn_order()}")
-        
-        # Verificar si hay masones seleccionados pero ambos están en el centro
-        if 'mason' in self.selected_roles:
-            masons_in_game = [
-                pid for pid, player in self.players.items() 
-                if player.get_role_name() == 'mason'
-            ]
-            
-            masons_in_center = [
-                i for i, role in enumerate(self.center_cards) 
-                if role == 'mason'
-            ]
-            
-            # Si hay masones seleccionados pero ambos están en el centro,
-            # agregar un turno especial de "masones ausentes"
-            if len(masons_in_center) == 2 and len(masons_in_game) == 0:
-                # Agregar un turno ficticio para simular la espera de masones
-                players_with_turns.append(('mason_wait', 2))  # turn_order 2 como los masones
-                self.add_log("🔨 Masones están en el centro - fase de espera activada")
-                print(f"🔧 AÑADIENDO TURNO ESPECIAL: mason_wait - orden 2")
-        
-        # Ordenar por turn_order y retornar solo los player_ids
-        players_with_turns.sort(key=lambda x: x[1])
-        night_turns = [player_id for player_id, _ in players_with_turns]
-        
-        print(f"🔧 TURNOS NOCTURNOS CALCULADOS: {night_turns}")
+        night_turns = [role for role, order in sorted_roles]
+        print(f"🔧 TURNOS NOCTURNOS CALCULADOS (POR ROL): {night_turns}")
         return night_turns
     
-    def get_current_turn_player(self) -> Optional[str]:
-        """Retorna el player_id del jugador en el turno actual"""
-        if (self.phase != GamePhase.NIGHT_PHASE or 
-            self.current_turn_index >= len(self.night_turns)):
-            return None
-        
-        return self.night_turns[self.current_turn_index]
-    
     def get_current_turn_role(self) -> Optional[str]:
-        """Retorna el rol que está actuando en el turno actual"""
-        current_player = self.get_current_turn_player()
-        if not current_player:
+        """Retorna el rol que está actuando en el turno actual."""
+        if self.phase != GamePhase.NIGHT_PHASE or self.current_turn_index >= len(self.night_turns):
             return None
-        
-        # Caso especial: masones ausentes (ambos en el centro)
-        if current_player == 'mason_wait':
-            return 'mason'
-        
-        return self.players[current_player].get_role_name()
+        return self.night_turns[self.current_turn_index]
     
     def get_night_action_data_for_player(self, player_id: str) -> Optional[Dict[str, Any]]:
         """Retorna los datos de acción nocturna para un jugador específico"""
@@ -238,62 +201,46 @@ class GameLogic:
         return player.role.get_night_action_data(player_id, game_state)
     
     def execute_night_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Ejecuta una acción nocturna"""
+        """Ejecuta una acción nocturna."""
         if self.phase != GamePhase.NIGHT_PHASE:
             return {'success': False, 'message': 'No es la fase nocturna'}
-        
         if player_id not in self.players:
             return {'success': False, 'message': 'Jugador no encontrado'}
-        
-        current_turn_player = self.get_current_turn_player()
-        
-        # Caso especial: turno de masones ausentes
-        if current_turn_player == 'mason_wait':
-            return {'success': False, 'message': 'Los masones están en el centro - no hay acciones'}
-        
-        if current_turn_player != player_id:
-            return {'success': False, 'message': 'No es tu turno'}
-        
+
         player = self.players[player_id]
+        current_role = self.get_current_turn_role()
+
+        # 🔧 FIX: La validación ahora es por ROL
+        if player.get_role_name() != current_role:
+            return {'success': False, 'message': 'No es el turno de tu rol'}
         if not player.role:
             return {'success': False, 'message': 'No tienes rol asignado'}
-        
+
         game_state = self._get_game_state()
         result = player.role.execute_action(player_id, action_data, game_state)
-        
         if result.get('success'):
-            self.add_log(f"🎯 {player.name} ejecutó su acción: {result.get('message', 'Acción realizada')}")
-        
+            self.add_log(f"🎯 {player.name} ({player.get_role_name()}) ejecutó su acción.")
         return result
-    
+
     def advance_night_turn(self) -> bool:
-        """Avanza al siguiente turno nocturno"""
+        """Avanza al siguiente turno nocturno."""
         if self.phase != GamePhase.NIGHT_PHASE:
             return False
         
         self.current_turn_index += 1
         
-        # Si se terminaron todos los turnos nocturnos
         if self.current_turn_index >= len(self.night_turns):
             self.phase = GamePhase.DAY_PHASE
             self.add_log("☀️ Amanecer. Fase de discusión iniciada")
             return True
         
-        # Siguiente turno
-        current_player = self.get_current_turn_player()
         current_role = self.get_current_turn_role()
-        if current_player and current_role:
-            # Caso especial para masones ausentes
-            if current_player == 'mason_wait':
-                self.add_log(f"🔨 Fase: Masones (ausentes) - Los demás esperan...")
-            else:
-                player_name = self.players[current_player].name
-                self.add_log(f"--- Fase: {current_role} ({player_name}) ---")
-        
+        if current_role:
+            self.add_log(f"--- Fase: {current_role} ---")
         return True
-    
+
     def _get_game_state(self) -> Dict[str, Any]:
-        """Retorna el estado actual del juego para las reglas de dominio"""
+        """Retorna el estado actual del juego para las reglas de dominio."""
         return {
             'room_code': self.room_code,
             'phase': self.phase.value,
@@ -301,23 +248,18 @@ class GameLogic:
                        for pid, p in self.players.items()},
             'center_cards': self.center_cards.copy(),
             'current_turn_index': self.current_turn_index,
-            'current_turn_player': self.get_current_turn_player(),
             'current_turn_role': self.get_current_turn_role()
         }
-    
+
     def add_log(self, message: str):
-        """Añade un evento al log del juego"""
+        """Añade un evento al log del juego."""
         import time
         timestamp = int(time.time())
-        log_entry = {
-            'timestamp': timestamp,
-            'message': message,
-            'phase': self.phase.value
-        }
+        log_entry = {'timestamp': timestamp, 'message': message, 'phase': self.phase.value}
         self.game_logs.append(log_entry)
-    
+
     def get_public_state(self) -> Dict[str, Any]:
-        """Retorna el estado público del juego (sin información sensible)"""
+        """Retorna el estado público del juego (sin información sensible)."""
         return {
             'room_code': self.room_code,
             'phase': self.phase.value,
@@ -325,22 +267,20 @@ class GameLogic:
             'player_count': len(self.players),
             'selected_roles_count': len(self.selected_roles),
             'current_turn_role': self.get_current_turn_role(),
-            'logs': self.game_logs[-10:]  # Últimos 10 logs
+            'logs': self.game_logs[-10:]
         }
-    
+
     def get_private_state_for_player(self, player_id: str) -> Dict[str, Any]:
-        """Retorna el estado privado para un jugador específico"""
+        """Retorna el estado privado para un jugador específico."""
         public_state = self.get_public_state()
-        
         if player_id not in self.players:
             return public_state
-        
+
         player = self.players[player_id]
-        current_turn_player = self.get_current_turn_player()
+        current_turn_role = self.get_current_turn_role()
         
-        # Determinar si es el turno del jugador (excluyendo casos especiales)
-        is_your_turn = (current_turn_player == player_id and 
-                       current_turn_player != 'mason_wait')
+        # 🔧 FIX: La validación de turno es por ROL
+        is_your_turn = player.get_role_name() == current_turn_role
         
         private_data = {
             'your_role': player.get_role_name() if player.role else None,
@@ -348,7 +288,6 @@ class GameLogic:
             'is_your_turn': is_your_turn
         }
         
-        # Añadir datos de acción nocturna si es su turno
         if is_your_turn:
             night_action_data = self.get_night_action_data_for_player(player_id)
             if night_action_data:

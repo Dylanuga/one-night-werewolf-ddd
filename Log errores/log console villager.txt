@@ -1,0 +1,89 @@
+📤 Emitiendo: start_game {}[[Prototype]]: Object
+App.jsx:207 🔄 Actualización del juego recibida: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}
+App.jsx:208 � Timestamp del evento game_update: 1757859393109
+App.jsx:209 �🔧 Verificando si GAME_UPDATE causa problemas: {dataPhase: 'night_phase', socketConnected: true, timestamp: 1757859393109}
+App.jsx:214 🔍 Estado previo antes de aplicar game_update: {gameState: {…}, privateState: {…}}
+gameStore.js:170 🎮 Actualizando gameState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"logs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8[[Prototype]]: Object
+RoleSelector.jsx:52 🧹 RoleSelector cleanup
+NightPhase.jsx:47 🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA): {currentTurnRole: null, isCurrentUserTurn: false, hasNightAction: false, hasActionResult: false, turn_timestamp: undefined, …}
+App.jsx:371 Estado del juego actualizado: {phase: 'night_phase', gameState: {…}, privateState: {…}, isCurrentUserHost: true, hostPlayer: 'Dilan'}gameState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}hostPlayer: "Dilan"isCurrentUserHost: truephase: "night_phase"privateState: {room_code: 'YVYB', phase: 'role_selection', players: Array(5), player_count: 5, selected_roles_count: 8, …}[[Prototype]]: Object
+NightPhase.jsx:47 🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA): {currentTurnRole: null, isCurrentUserTurn: false, hasNightAction: false, hasActionResult: false, turn_timestamp: undefined, …}
+App.jsx:230 🔐 Actualización privada recibida: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+App.jsx:231 🔍 Timestamp del evento private_update: 1757859393125
+App.jsx:232 🔍 Estado previo antes de aplicar private_update: {gameState: {…}, privateState: {…}}
+gameStore.js:175 🔍 DEBUG setPrivateState - INICIO: {estadoRecibido: {…}, estadoActual: {…}, timestamp: 1757859393125}
+gameStore.js:197 🔍 DEBUG setPrivateState - COMPARACIÓN DETALLADA:
+gameStore.js:202   📝 phase: "role_selection" → "night_phase" (cambió: true)
+gameStore.js:202   📝 current_turn_role: "null" → "werewolf" (cambió: true)
+gameStore.js:202   📝 is_your_turn: "false" → "false" (cambió: false)
+gameStore.js:202   📝 your_role: "null" → "villager" (cambió: true)
+gameStore.js:202   📝 room_code: "YVYB" → "YVYB" (cambió: false)
+gameStore.js:202   📝 player_count: "5" → "5" (cambió: false)
+gameStore.js:202   📝 selected_roles_count: "8" → "8" (cambió: false)
+gameStore.js:202   📝 turn_timestamp: "undefined" → "undefined" (cambió: false)
+gameStore.js:225 🔍 DEBUG setPrivateState - RESUMEN CAMBIOS: {hasBasicChanges: true, hasActionChanges: undefined, hasPlayerChanges: false, isTurnChange: false, totalChanges: true}hasActionChanges: undefinedhasBasicChanges: truehasPlayerChanges: falseisTurnChange: falsetotalChanges: true[[Prototype]]: Object
+gameStore.js:246 🔍 DEBUG setPrivateState - ESTADO ANTES: {room_code: 'YVYB', phase: 'role_selection', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: nullis_your_turn: falselogs: (5) [{…}, {…}, {…}, {…}, {…}]phase: "role_selection"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: nullyour_role: null[[Prototype]]: Object
+gameStore.js:247 🔍 DEBUG setPrivateState - ESTADO DESPUÉS: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+gameStore.js:252 🔍 DEBUG setPrivateState - FINAL: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+PhaseTimer.jsx:13 ⏰ PhaseTimer - Nuevo currentTurn: {currentTurn: null, timestamp: undefined, role: undefined}currentTurn: nullrole: undefinedtimestamp: undefined[[Prototype]]: Object
+PhaseTimer.jsx:64 ⏰ PhaseTimer - Sin timestamp, reseteando
+NightPhase.jsx:47 🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA): {currentTurnRole: 'werewolf', isCurrentUserTurn: false, hasNightAction: false, hasActionResult: false, turn_timestamp: undefined, …}
+App.jsx:371 Estado del juego actualizado: {phase: 'night_phase', gameState: {…}, privateState: {…}, isCurrentUserHost: true, hostPlayer: 'Dilan'}gameState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}hostPlayer: "Dilan"isCurrentUserHost: truephase: "night_phase"privateState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}[[Prototype]]: Object
+PhaseTimer.jsx:13 ⏰ PhaseTimer - Nuevo currentTurn: {currentTurn: null, timestamp: undefined, role: undefined}currentTurn: nullrole: undefinedtimestamp: undefined[[Prototype]]: Object
+PhaseTimer.jsx:64 ⏰ PhaseTimer - Sin timestamp, reseteando
+App.jsx:255 ⏰ Inicio de turno recibido: {role: 'werewolf', phase: 'Fase: werewolf', duration: 6, timestamp: 1757859393.103506}duration: 6phase: "Fase: werewolf"role: "werewolf"timestamp: 1757859393.103506[[Prototype]]: Object
+App.jsx:261 🔍 TURN_START listener - FUNCIONANDO para rol: werewolf
+App.jsx:262 🔍 Socket conectado: true
+App.jsx:266 ⏰ [2025-09-14T14:16:33.137Z] TURN_START recibido para rol: werewolf
+App.jsx:268 🔧 Estado del socket: conectado=true, id=LpJPx9I8xy3GNqxKAAAD
+App.jsx:269 🔧 Estado actual antes del cambio: {currentTurnRole: 'werewolf', gamePhase: 'night_phase'}currentTurnRole: "werewolf"gamePhase: "night_phase"[[Prototype]]: Object
+gameStore.js:266 🎮 Actualizando currentTurnDisplay (solo UI): {role: 'werewolf', phase: 'Fase: werewolf', duration: 6, timestamp: 1757859393.103506}duration: 6phase: "Fase: werewolf"role: "werewolf"timestamp: 1757859393.103506[[Prototype]]: Object
+App.jsx:281 ✅ TURN_START procesado exitosamente para: werewolf
+App.jsx:298 🔄 Actualizando privateState con nuevo turno: {role: 'werewolf', isYourTurn: false}isYourTurn: falserole: "werewolf"[[Prototype]]: Object
+gameStore.js:175 🔍 DEBUG setPrivateState - INICIO: {estadoRecibido: {…}, estadoActual: {…}, timestamp: 1757859393137}estadoActual: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}estadoRecibido: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}timestamp: 1757859393137[[Prototype]]: Object
+gameStore.js:197 🔍 DEBUG setPrivateState - COMPARACIÓN DETALLADA:
+gameStore.js:202   📝 phase: "night_phase" → "night_phase" (cambió: false)
+gameStore.js:202   📝 current_turn_role: "werewolf" → "werewolf" (cambió: false)
+gameStore.js:202   📝 is_your_turn: "false" → "false" (cambió: false)
+gameStore.js:202   📝 your_role: "villager" → "villager" (cambió: false)
+gameStore.js:202   📝 room_code: "YVYB" → "YVYB" (cambió: false)
+gameStore.js:202   📝 player_count: "5" → "5" (cambió: false)
+gameStore.js:202   📝 selected_roles_count: "8" → "8" (cambió: false)
+gameStore.js:202   📝 turn_timestamp: "undefined" → "undefined" (cambió: false)
+gameStore.js:225 🔍 DEBUG setPrivateState - RESUMEN CAMBIOS: {hasBasicChanges: false, hasActionChanges: undefined, hasPlayerChanges: false, isTurnChange: false, totalChanges: false}
+gameStore.js:234 🔄 setPrivateState: Sin cambios detectados, ignorando
+App.jsx:230 🔐 Actualización privada recibida: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8turn_timestamp: 1757859393.103506your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+App.jsx:231 🔍 Timestamp del evento private_update: 1757859393145
+App.jsx:232 🔍 Estado previo antes de aplicar private_update: {gameState: {…}, privateState: {…}}
+gameStore.js:175 🔍 DEBUG setPrivateState - INICIO: {estadoRecibido: {…}, estadoActual: {…}, timestamp: 1757859393146}estadoActual: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}estadoRecibido: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}timestamp: 1757859393146[[Prototype]]: Object
+gameStore.js:197 🔍 DEBUG setPrivateState - COMPARACIÓN DETALLADA:
+gameStore.js:202   📝 phase: "night_phase" → "night_phase" (cambió: false)
+gameStore.js:202   📝 current_turn_role: "werewolf" → "werewolf" (cambió: false)
+gameStore.js:202   📝 is_your_turn: "false" → "false" (cambió: false)
+gameStore.js:202   📝 your_role: "villager" → "villager" (cambió: false)
+gameStore.js:202   📝 room_code: "YVYB" → "YVYB" (cambió: false)
+gameStore.js:202   📝 player_count: "5" → "5" (cambió: false)
+gameStore.js:202   📝 selected_roles_count: "8" → "8" (cambió: false)
+gameStore.js:202   📝 turn_timestamp: "undefined" → "1757859393.103506" (cambió: true)
+gameStore.js:210 🔄 CAMBIO DE TURNO DETECTADO por timestamp: {anterior: undefined, nuevo: 1757859393.103506, rol: 'werewolf'}anterior: undefinednuevo: 1757859393.103506rol: "werewolf"[[Prototype]]: Object
+gameStore.js:225 🔍 DEBUG setPrivateState - RESUMEN CAMBIOS: {hasBasicChanges: true, hasActionChanges: undefined, hasPlayerChanges: false, isTurnChange: true, totalChanges: true}hasActionChanges: undefinedhasBasicChanges: truehasPlayerChanges: falseisTurnChange: truetotalChanges: true[[Prototype]]: Object
+gameStore.js:246 🔍 DEBUG setPrivateState - ESTADO ANTES: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+gameStore.js:247 🔍 DEBUG setPrivateState - ESTADO DESPUÉS: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8turn_timestamp: 1757859393.103506your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+gameStore.js:252 🔍 DEBUG setPrivateState - FINAL: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8turn_timestamp: 1757859393.103506your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+PhaseTimer.jsx:13 ⏰ PhaseTimer - Nuevo currentTurn: {currentTurn: {…}, timestamp: 1757859393.103506, role: 'werewolf'}currentTurn: {role: 'werewolf', phase: 'Fase: werewolf', timestamp: 1757859393.103506, duration: 6}role: "werewolf"timestamp: 1757859393.103506[[Prototype]]: Object
+PhaseTimer.jsx:34 ⏰ PhaseTimer - Calculando tiempo: {elapsed: 0, initialTime: 6, TURN_DURATION: 6}TURN_DURATION: 6elapsed: 0initialTime: 6[[Prototype]]: Object
+PhaseTimer.jsx:44 ⏰ PhaseTimer - Iniciando countdown visual
+NightPhase.jsx:47 🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA): {currentTurnRole: 'werewolf', isCurrentUserTurn: false, hasNightAction: false, hasActionResult: false, turn_timestamp: 1757859393.103506, …}currentTurnDisplay: {role: 'werewolf', phase: 'Fase: werewolf', timestamp: 1757859393.103506, duration: 6}currentTurnRole: "werewolf"hasActionResult: falsehasNightAction: falseisCurrentUserTurn: falsetimestamp: 1757859393152turn_timestamp: 1757859393.103506[[Prototype]]: Object
+App.jsx:371 Estado del juego actualizado: {phase: 'night_phase', gameState: {…}, privateState: {…}, isCurrentUserHost: true, hostPlayer: 'Dilan'}gameState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}hostPlayer: "Dilan"isCurrentUserHost: truephase: "night_phase"privateState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}[[Prototype]]: Object
+App.jsx:197 🎮 Juego iniciado: {room_code: 'YVYB', message: 'El juego ha comenzado', timestamp: 1757859393.1049714}message: "El juego ha comenzado"room_code: "YVYB"timestamp: 1757859393.1049714[[Prototype]]: Object
+App.jsx:198 🔧 Estado actual antes de GAME_STARTED: {socketConnected: true, gameState: {…}, privateState: {…}}gameState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}privateState: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}socketConnected: true[[Prototype]]: Object
+App.jsx:222 [DEBUG] Estado final del store después de game_update: {gameState: {…}, privateState: {…}}
+App.jsx:246 [DEBUG] Nuevo privateState aplicado: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+App.jsx:247 [DEBUG] Estado final del store después de private_update: {gameState: {…}, privateState: {…}}
+App.jsx:246 [DEBUG] Nuevo privateState aplicado: {room_code: 'YVYB', phase: 'night_phase', players: Array(5), player_count: 5, selected_roles_count: 8, …}current_turn_role: "werewolf"is_your_turn: falselogs: (10) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]phase: "night_phase"player_count: 5players: (5) [{…}, {…}, {…}, {…}, {…}]room_code: "YVYB"selected_roles_count: 8turn_timestamp: 1757859393.103506your_original_role: "villager"your_role: "villager"[[Prototype]]: Object
+App.jsx:247 [DEBUG] Estado final del store después de private_update: {gameState: {…}, privateState: {…}}
+App.jsx:116 💓 Heartbeat - Socket conectado, enviando ping...
+App.jsx:117 🔍 Socket status: {connected: true, id: 'LpJPx9I8xy3GNqxKAAAD'}
+PhaseTimer.jsx:54 ⏰ PhaseTimer - Countdown terminado
+App.jsx:116 💓 Heartbeat - Socket conectado, enviando ping...
+App.jsx:117 🔍 Socket status: {connected: true, id: 'LpJPx9I8xy3GNqxKAAAD'}
