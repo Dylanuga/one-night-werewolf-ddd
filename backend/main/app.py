@@ -219,7 +219,12 @@ def emit_callback(event: str, data: Any, room: str = None):
         import traceback
         traceback.print_exc()
 
-game_service = GameService(room_repository, emit_callback)
+game_service = GameService(
+    room_repository,
+    emit_callback,
+    start_background_task=socketio.start_background_task,
+    sleep_fn=socketio.sleep
+)
 
 # 🔧 FIX: Mapeo de socket_id a player_id ESTABLE
 connected_players: Dict[str, str] = {}

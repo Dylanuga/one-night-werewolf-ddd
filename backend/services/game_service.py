@@ -1,6 +1,5 @@
 # backend/services/game_service.py
 import time
-import threading
 from typing import Dict, List, Optional, Any, Callable
 from domain.game_logic import GameLogic, GamePhase
 from infrastructure.room_repository import RoomRepository
@@ -8,10 +7,18 @@ from infrastructure.room_repository import RoomRepository
 class GameService:
     """Servicio de aplicación que coordina la lógica del juego"""
     
-    def __init__(self, room_repository: RoomRepository, emit_callback: Callable):
+    def __init__(
+        self,
+        room_repository: RoomRepository,
+        emit_callback: Callable,
+        start_background_task: Callable,
+        sleep_fn: Callable
+    ):
         self.room_repository = room_repository
         self.emit_callback = emit_callback
-        self.turn_timers: Dict[str, threading.Timer] = {}
+        self.start_background_task = start_background_task
+        self.sleep_fn = sleep_fn
+        self.turn_timer_tokens: Dict[str, int] = {}
         self.TURN_DURATION = 6  # segundos
 
     def create_room(self, room_code: str, host_id: str, host_name: str, socket_id: str) -> bool:
@@ -522,7 +529,7 @@ class GameService:
             return False
 
     def _start_turn_timer(self, room_code: str):
-        """🔧 FIX MEJORADO: Inicia un timer que avanza automáticamente el turno después de 6 segundos"""
+        """🔧 FIX MEJORADO: Inicia un timer compatible con eventlet para avanzar turno cada 6 segundos"""
         try:
             # Verificar si el juego sigue activo y en fase nocturna
             game = self.room_repository.get_game(room_code)
@@ -536,14 +543,26 @@ class GameService:
                 print(f"⚠️ No se inicia timer: No hay rol actual en sala {room_code}")
                 return
                 
-            # Cancelar timer anterior si existe
-            self._cancel_turn_timer(room_code)
+            # Invalidar cualquier timer anterior y generar un token nuevo
+            token = self.turn_timer_tokens.get(room_code, 0) + 1
+            self.turn_timer_tokens[room_code] = token
             
-            # Crear nuevo timer con mayor robustez
-            timer = threading.Timer(self.TURN_DURATION, self._auto_advance_turn, [room_code])
-            timer.daemon = True  # Asegurar que el timer no bloquee la salida del programa
-            timer.start()
-            self.turn_timers[room_code] = timer
+            def timer_task(expected_token: int):
+                try:
+                    # Sleep no bloqueante compatible con eventlet/Socket.IO
+                    self.sleep_fn(self.TURN_DURATION)
+                    
+                    # Si hubo un cancel o un nuevo timer, abortar
+                    if self.turn_timer_tokens.get(room_code) != expected_token:
+                        print(f"⚠️ Timer invalidado para sala {room_code}, token {expected_token}")
+                        return
+                    
+                    self._auto_advance_turn(room_code)
+                except Exception as e:
+                    print(f"🔴 ERROR en timer_task para {room_code}: {str(e)}")
+            
+            # Iniciar tarea en background
+            self.start_background_task(timer_task, token)
             
             print(f"🔧 TIMER INICIADO: {self.TURN_DURATION}s para sala {room_code}, rol {current_role}")
             
@@ -559,27 +578,22 @@ class GameService:
             traceback.print_exc()
 
     def _cancel_turn_timer(self, room_code: str):
-        """🔧 FIX: Cancela el timer de turno para una sala"""
+        """🔧 FIX: Cancela el timer de turno para una sala (invalida token)"""
         try:
-            if room_code in self.turn_timers:
-                timer = self.turn_timers[room_code]
-                timer.cancel()
-                del self.turn_timers[room_code]
-                print(f"🔧 TIMER CANCELADO para sala {room_code}")
+            if room_code in self.turn_timer_tokens:
+                # Invalidar el token actual
+                del self.turn_timer_tokens[room_code]
+                print(f"🔧 TIMER CANCELADO (token invalidado) para sala {room_code}")
         except Exception as e:
             print(f"🔴 ERROR cancelando timer para {room_code}: {str(e)}")
-            # Intentar limpiar el timer incluso si falla la cancelación
-            if room_code in self.turn_timers:
-                del self.turn_timers[room_code]
+            # Intentar limpiar el token incluso si falla la cancelación
+            if room_code in self.turn_timer_tokens:
+                del self.turn_timer_tokens[room_code]
 
     def _auto_advance_turn(self, room_code: str):
         """🔧 FIX MEJORADO: Avanza automáticamente al siguiente turno cuando expira el timer"""
         try:
             print(f"🔧 AUTO-AVANZANDO TURNO para sala {room_code}")
-            
-            # Limpiar el timer actual de la lista de timers activos
-            if room_code in self.turn_timers:
-                del self.turn_timers[room_code]
             
             game = self.room_repository.get_game(room_code)
             if not game:
@@ -653,7 +667,7 @@ class GameService:
             print(f"🔧 AVANCE MANUAL DE TURNO para sala {room_code}")
             
             # Cancelar cualquier timer existente
-            self._cancel_timer(room_code)
+            self._cancel_turn_timer(room_code)
             
             # Utilizar directamente el método _auto_advance_turn que ya tiene toda la lógica necesaria
             self._auto_advance_turn(room_code)
