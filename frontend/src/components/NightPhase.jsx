@@ -7,6 +7,7 @@ import {
   PhaseTimer, 
   WerewolfPhase, 
   MasonPhase, 
+  SeerPhase,
   GenericPhase, 
   ActionResult 
 } from './night-phases';
@@ -107,8 +108,16 @@ export const NightPhase = React.memo(() => {
             nightActionData={nightActionData} 
           />
         )}
+
+        {currentTurnRole === 'seer' && (
+          <SeerPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
         
-        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && (
+        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
             isMyTurn={isCurrentUserTurn} 

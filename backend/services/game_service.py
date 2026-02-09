@@ -331,6 +331,27 @@ class GameService:
                                 self.emit_callback('private_update', private_state, room=player.socket_id)
                                 self.emit_callback('night_action', night_action_data, room=player.socket_id)
                                 continue
+
+                        # 🔧 FIX: Si estamos en turno de seer y este jugador es seer
+                        if (current_turn_role == 'seer' and 
+                            player.get_role_name() == 'seer' and
+                            game.phase.value == 'night_phase'):
+                            
+                            print(f"🔧 RECONEXIÓN DURANTE TURNO SEER: {player_id}")
+                            
+                            # Reenviar datos de night_action
+                            night_action_data = game.get_night_action_data_for_player(player_id)
+                            if night_action_data:
+                                private_state['night_action'] = night_action_data
+                                private_state['current_turn_role'] = 'seer'
+                                private_state['is_your_turn'] = True
+                                
+                                print(f"🔧 REENVIANDO NIGHT_ACTION A SEER {player_id}: {night_action_data}")
+                                
+                                # Enviar tanto private_update como night_action separado
+                                self.emit_callback('private_update', private_state, room=player.socket_id)
+                                self.emit_callback('night_action', night_action_data, room=player.socket_id)
+                                continue
                         
                         # Emisión normal
                         self.emit_callback('private_update', private_state, room=player.socket_id)

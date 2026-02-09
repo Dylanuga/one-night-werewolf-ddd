@@ -47,6 +47,25 @@ describe('NightPhase - avance de turno', () => {
       is_your_turn: true,
       night_action: { type: 'show_other_mason', message: 'Tu compañero masón es: 4', other_mason_name: '4' }
     });
+
+  it('muestra el turno de la pitonisa cuando es su turno', () => {
+    setPrivateStateMock({
+      your_role: 'seer',
+      current_turn_role: 'seer',
+      is_your_turn: true,
+      night_action: { 
+        type: 'seer_choose', 
+        message: 'Puedes ver la carta de otro jugador o dos cartas del centro.',
+        players: [{ id: 'p2', name: 'Ana' }],
+        center_positions: [0, 1, 2]
+      }
+    });
+    render(<NightPhase />);
+    const faseElements = screen.getAllByText(/Fase: seer/i);
+    expect(faseElements.length).toBeGreaterThan(0);
+    expect(screen.getByText(/¡Es tu turno!/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ver jugador/i)).toBeInTheDocument();
+  });
     render(<NightPhase />);
     const faseElements = screen.getAllByText(/Fase: mason/i);
     expect(faseElements.length).toBeGreaterThan(0);

@@ -28,7 +28,10 @@ function App() {
     setActionResult,
     setError,
     addLog,
-    setSelectedRoles
+    setSelectedRoles,
+    setPlayerName,
+    setRoomCode,
+    joinRoom
   } = useGameStore();
 
   const socketRef = useRef(null);
@@ -37,8 +40,27 @@ function App() {
   const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [showError, setShowError] = useState(false);
   const [showTestingPanel, setShowTestingPanel] = useState(false);
+  const autoJoinRef = useRef(false);
 
   const currentPhase = getCurrentPhase();
+
+  // Auto-join por URL (?autoJoin=1&room=TEST&name=Player1)
+  useEffect(() => {
+    if (!isConnected || autoJoinRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const autoJoin = params.get('autoJoin') === '1';
+    const room = params.get('room');
+    const name = params.get('name');
+
+    if (autoJoin && room && name && !gameState?.room_code) {
+      autoJoinRef.current = true;
+      setPlayerName(name);
+      setRoomCode(room);
+      joinRoom(room, name);
+      addLog(`Auto-join: ${name} -> ${room}`);
+    }
+  }, [isConnected, gameState?.room_code, setPlayerName, setRoomCode, joinRoom, addLog]);
 
   // 🔧 NUEVA LÓGICA: Inicialización centralizada del socket
   useEffect(() => {
