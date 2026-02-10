@@ -34,7 +34,7 @@ export const RobberPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   if (!isMyTurn) {
     return (
       <div className="bg-slate-700/50 border border-slate-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-white mb-4">🥷 Turno: Robber (Ladrón)</h3>
+        <h3 className="text-xl font-bold text-white mb-4">🥷 Turno: Ladrón</h3>
         <p className="text-slate-300 mb-2">Intercambia su carta con la de otro jugador y la ve.</p>
         {nightActionData?.message && (
           <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>

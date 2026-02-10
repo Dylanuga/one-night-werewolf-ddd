@@ -13,61 +13,61 @@ export const GAME_PHASES = {
 
 export const ROLES = {
   werewolf: {
-    name: 'Werewolf (Lobo)',
+    name: 'Lobo',
     description: 'Se conocen entre ellos. Si está solo, ve una carta del centro.',
     emoji: '🐺',
     color: '#dc2626'
   },
   villager: {
-    name: 'Villager (Aldeano)',
+    name: 'Aldeano',
     description: 'Sin habilidad especial. Debe deducir quiénes son los lobos.',
     emoji: '👨‍🌾',
     color: '#16a34a'
   },
   seer: {
-    name: 'Seer (Pitonisa)',
+    name: 'Pitonisa',
     description: 'Ve la carta de otro jugador o dos cartas del centro.',
     emoji: '🔮',
     color: '#7c3aed'
   },
   robber: {
-    name: 'Robber (Ladrón)',
+    name: 'Ladrón',
     description: 'Intercambia su carta con la de otro jugador y la ve.',
     emoji: '🥷',
     color: '#ea580c'
   },
   troublemaker: {
-    name: 'Troublemaker (Alborotadora)',
+    name: 'Alborotadora',
     description: 'Intercambia las cartas de otros dos jugadores sin verlas.',
     emoji: '🃏',
     color: '#db2777'
   },
   hunter: {
-    name: 'Hunter (Cazador)',
+    name: 'Cazador',
     description: 'Si muere, también muere el jugador al que apunte.',
     emoji: '🏹',
     color: '#059669'
   },
   mason: {
-    name: 'Mason (Masón)',
+    name: 'Masón',
     description: 'Se conocen entre ellos (siempre van de 2 en 2).',
     emoji: '🔨',
     color: '#0891b2'
   },
   drunk: {
-    name: 'Drunk (Borracho)',
+    name: 'Borracho',
     description: 'Intercambia su carta con una del centro sin verla.',
     emoji: '🍺',
     color: '#ca8a04'
   },
   insomniac: {
-    name: 'Insomniac (Insomne)',
+    name: 'Insomne',
     description: 'Al final de la noche, ve su propia carta (que pudo cambiar).',
     emoji: '😴',
     color: '#6366f1'
   },
   tanner: {
-    name: 'Tanner (Curtidor)',
+    name: 'Curtidor',
     description: 'Gana si muere. Odia su vida.',
     emoji: '🪣',
     color: '#8b5cf6'

@@ -46,7 +46,11 @@ export const RevealPhase = () => {
             <div className="bg-slate-900/60 border border-slate-700 rounded-lg p-4">
               <h3 className="text-white font-bold mb-2">Ganadores</h3>
               <p className="text-slate-300">
-                Equipo: <span className="font-bold">{winners?.team || '—'}</span>
+                Equipo: <span className="font-bold">
+                  {winners?.team === 'villagers' ? 'Aldeanos' :
+                   winners?.team === 'werewolves' ? 'Lobos' :
+                   winners?.team === 'tanner' ? 'Bufón' : '—'}
+                </span>
               </p>
             </div>
           </div>

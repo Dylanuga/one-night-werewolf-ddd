@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const TroublemakerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction, privateState } = useGameStore();
+  const { executeNightAction, privateState, gameState } = useGameStore();
   const [selectedA, setSelectedA] = useState('');
   const [selectedB, setSelectedB] = useState('');
   const [hasActed, setHasActed] = useState(false);
@@ -22,7 +22,11 @@ export const TroublemakerPhase = ({ isMyTurn, nightActionData, actionResult }) =
     }
   }, [actionResult]);
 
-  const players = useMemo(() => nightActionData?.players || [], [nightActionData]);
+  const players = useMemo(() => {
+    if (nightActionData?.players?.length) return nightActionData.players;
+    const fallback = gameState?.players || [];
+    return fallback.map(p => ({ id: p.player_id, name: p.name }));
+  }, [nightActionData, gameState]);
   const lastSwap = privateState?.troublemaker_last_swap;
   const swappedFromResult = actionResult?.swapped_players;
   const swapInfo = lastSwap || swappedFromResult;
@@ -55,7 +59,7 @@ export const TroublemakerPhase = ({ isMyTurn, nightActionData, actionResult }) =
   if (!isMyTurn) {
     return (
       <div className="bg-slate-700/50 border border-slate-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-white mb-4">🃏 Turno: Troublemaker (Alborotadora)</h3>
+        <h3 className="text-xl font-bold text-white mb-4">🃏 Turno: Alborotadora</h3>
         <p className="text-slate-300 mb-2">Intercambia las cartas de otros dos jugadores sin verlas.</p>
         {nightActionData?.message && (
           <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
@@ -76,7 +80,9 @@ export const TroublemakerPhase = ({ isMyTurn, nightActionData, actionResult }) =
   return (
     <div className="bg-slate-700/40 border border-slate-500 rounded-lg p-6">
       <h3 className="text-xl font-bold text-white mb-4 text-center">🃏 Tu acción</h3>
-      <p className="text-slate-300 text-center mb-4">{nightActionData.message}</p>
+      <p className="text-slate-300 text-center mb-4">
+        {nightActionData?.message || 'Elige dos jugadores para intercambiar sus roles (puede incluirte).'}
+      </p>
 
       <div className="grid gap-2 mb-4">
         {players.length === 0 && (

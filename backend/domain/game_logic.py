@@ -216,10 +216,14 @@ class GameLogic:
             return None
         
         player = self.players[player_id]
-        if not player.role:
+        if not player.role and player.original_role != 'insomniac':
             return None
         
         game_state = self._get_game_state()
+        # Caso especial: insomne debe recibir info aunque su rol actual haya cambiado
+        if self.get_current_turn_role() == 'insomniac' and player.original_role == 'insomniac':
+            insomniac_role = RoleFactory.create_role('insomniac')
+            return insomniac_role.get_night_action_data(player_id, game_state)
         return player.role.get_night_action_data(player_id, game_state)
     
     def execute_night_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -466,7 +470,12 @@ class GameLogic:
         werewolves_in_final = [pid for pid, role in self.final_roles.items() if role == 'werewolf']
         eliminated_werewolves = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == 'werewolf']
 
-        if eliminated_werewolves:
+        eliminated_tanner = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == 'tanner']
+
+        if eliminated_tanner:
+            team = 'tanner'
+            message = 'Gana el Bufón, el bromista 🃏.'
+        elif eliminated_werewolves:
             team = 'villagers'
             message = 'Los aldeanos ganan (eliminaste a un lobo).'
         else:
@@ -538,7 +547,9 @@ class GameLogic:
         current_turn_role = self.get_current_turn_role()
         
         # 🔧 FIX: La validación de turno es por ROL
-        is_your_turn = player.get_role_name() == current_turn_role
+        is_your_turn = player.get_role_name() == current_turn_role or (
+            current_turn_role == 'insomniac' and player.original_role == 'insomniac'
+        )
         
         your_role = player.get_role_name() if player.role else None
         if self.phase in (GamePhase.NIGHT_PHASE, GamePhase.DAY_PHASE, GamePhase.VOTING) and player.original_role:

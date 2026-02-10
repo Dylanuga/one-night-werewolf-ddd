@@ -11,6 +11,7 @@ import {
   RobberPhase,
   TroublemakerPhase,
   DrunkPhase,
+  InsomniacPhase,
   GenericPhase, 
   ActionResult 
 } from './night-phases';
@@ -158,8 +159,15 @@ export const NightPhase = React.memo(() => {
             actionResult={actionResult}
           />
         )}
+
+        {!isOpenEyes && currentTurnRole === 'insomniac' && (
+          <InsomniacPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+          />
+        )}
         
-        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && (
+        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && currentTurnRole !== 'insomniac' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
             isMyTurn={isCurrentUserTurn} 

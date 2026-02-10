@@ -407,12 +407,31 @@ class InsomniacRole(Role):
         return 7  # El insomne va al final de todos los turnos
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        player = game_state['players'].get(player_id)
+        if not player:
+            return None
+        current_role = player.get('role')
+        role_names = {
+            'werewolf': 'lobo',
+            'villager': 'aldeano',
+            'seer': 'pitonisa',
+            'robber': 'ladrón',
+            'troublemaker': 'alborotadora',
+            'tanner': 'curtidor',
+            'drunk': 'borracho',
+            'mason': 'masón',
+            'hunter': 'cazador',
+            'insomniac': 'insomne'
+        }
+        role_name = role_names.get(current_role, current_role)
+        return {
+            'type': 'insomniac_reveal',
+            'message': f'Al despertarte antes de tiempo tu nuevo rol es: {role_name}.',
+            'current_role': current_role
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        # TODO: Implementar en el futuro
-        return {'success': False, 'message': 'Insomne no implementado aún'}
+        return {'success': True, 'message': 'Insomne: información revelada'}
 
 # Factory para crear roles
 class RoleFactory:

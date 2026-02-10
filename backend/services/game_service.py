@@ -467,7 +467,9 @@ class GameService:
                         
                         # Determinar si es el turno de este jugador
                         player_role = player.get_role_name()
-                        private_state['is_your_turn'] = (player_role == role)
+                        private_state['is_your_turn'] = (
+                            player_role == role or (role == 'insomniac' and player.original_role == 'insomniac')
+                        )
                         
                         # Si es su turno, añadir datos de night_action
                         if private_state['is_your_turn']:
