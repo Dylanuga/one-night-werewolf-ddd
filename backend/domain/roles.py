@@ -322,8 +322,11 @@ class DrunkRole(Role):
         return 6  # El borracho va despu?s del alborotador
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        return {
+            'type': 'drunk_choose_center',
+            'message': 'Elige una carta del centro para intercambiarla con la tuya (no la verás).',
+            'center_positions': [0, 1, 2]
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro

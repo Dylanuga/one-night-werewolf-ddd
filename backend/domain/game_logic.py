@@ -38,6 +38,8 @@ class GameLogic:
         self.eliminated_ids: List[str] = []
         self.winners: Dict[str, Any] = {}
         self.night_finished = False
+        self.drunk_action_taken = False
+        self.drunk_last_center_by_player: Dict[str, int] = {}
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
         """Añade un jugador a la sala"""
@@ -175,6 +177,8 @@ class GameLogic:
         self.eliminated_ids = []
         self.winners = {}
         self.night_finished = False
+        self.drunk_action_taken = False
+        self.drunk_last_center_by_player = {}
         self.add_log("🌙 El juego ha comenzado. Es de noche...")
         
         return True
@@ -238,6 +242,8 @@ class GameLogic:
             result = self._execute_robber_action(player_id, action_data)
         elif current_role == 'troublemaker':
             result = self._execute_troublemaker_action(player_id, action_data)
+        elif current_role == 'drunk':
+            result = self._execute_drunk_action(player_id, action_data)
         else:
             game_state = self._get_game_state()
             result = player.role.execute_action(player_id, action_data, game_state)
@@ -357,6 +363,34 @@ class GameLogic:
             'target_player_id_b': target_b
         })
 
+    def _execute_drunk_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Ejecuta la acción del borracho: intercambia su rol con una carta del centro sin verla."""
+        if self.drunk_action_taken:
+            return {'success': False, 'message': 'Acción de borracho ya ejecutada'}
+
+        center_pos = action_data.get('center_position')
+        if center_pos is None or not isinstance(center_pos, int) or not (0 <= center_pos <= 2):
+            return {'success': False, 'message': 'Posición de centro inválida'}
+
+        if center_pos >= len(self.center_cards):
+            return {'success': False, 'message': 'Posición de centro inválida'}
+
+        player = self.players[player_id]
+        # Intercambiar rol actual con la carta del centro elegida
+        center_role = self.center_cards[center_pos]
+        self.center_cards[center_pos] = player.get_role_name()
+        player.role = RoleFactory.create_role(center_role)
+
+        self.drunk_action_taken = True
+        self.drunk_last_center_by_player[player_id] = center_pos
+
+        return {
+            'success': True,
+            'message': f'Has intercambiado tu carta con la del centro {center_pos + 1}.',
+            'center_position': center_pos,
+            'drunk_player_id': player_id
+        }
+
     def advance_night_turn(self) -> bool:
         """Avanza al siguiente turno nocturno."""
         if self.phase != GamePhase.NIGHT_PHASE:
@@ -375,6 +409,8 @@ class GameLogic:
                 self.robber_action_taken = False
             if current_role == 'troublemaker':
                 self.troublemaker_action_taken = False
+            if current_role == 'drunk':
+                self.drunk_action_taken = False
         return True
 
     def start_voting_phase(self) -> bool:
@@ -526,6 +562,10 @@ class GameLogic:
             troublemaker_last_swap = self.troublemaker_last_swap_by_player.get(player_id)
             if troublemaker_last_swap:
                 private_data['troublemaker_last_swap'] = troublemaker_last_swap
+        if self.phase == GamePhase.NIGHT_PHASE and player.original_role == 'drunk':
+            drunk_center = self.drunk_last_center_by_player.get(player_id)
+            if drunk_center is not None:
+                private_data['drunk_last_center'] = drunk_center
         
         if is_your_turn:
             night_action_data = self.get_night_action_data_for_player(player_id)

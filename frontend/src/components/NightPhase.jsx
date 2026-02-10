@@ -10,6 +10,7 @@ import {
   SeerPhase,
   RobberPhase,
   TroublemakerPhase,
+  DrunkPhase,
   GenericPhase, 
   ActionResult 
 } from './night-phases';
@@ -149,8 +150,16 @@ export const NightPhase = React.memo(() => {
             actionResult={actionResult}
           />
         )}
+
+        {!isOpenEyes && currentTurnRole === 'drunk' && (
+          <DrunkPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
         
-        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && (
+        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
             isMyTurn={isCurrentUserTurn} 
@@ -222,6 +231,11 @@ export const NightPhase = React.memo(() => {
             )}
             {nightNotes?.seer && myRole === 'seer' && (
               <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
+            )}
+            {privateState?.drunk_last_center !== undefined && myRole === 'drunk' && (
+              <p className="text-yellow-400 font-semibold">
+                🍺 Recuerda: elegiste la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'}.
+              </p>
             )}
             {/* Mostrar info del turno actual para todos */}
             {currentTurnRole && (
