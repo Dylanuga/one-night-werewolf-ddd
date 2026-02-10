@@ -1,159 +1,80 @@
-// src/components/NightPhase.jsx
-import React, { useState, useEffect } from 'react';
-import { Eye, Clock } from 'lucide-react';
+// src/components/NightPhase.jsx - VERSIÓN OPTIMIZADA
+import React, { useEffect, useMemo } from 'react';
+import { Eye } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useSocket } from '../hooks/useSocket';
 import { ROLES, TURN_DURATION } from '../utils/constants';
+import { 
+  PhaseTimer, 
+  WerewolfPhase, 
+  MasonPhase, 
+  SeerPhase,
+  RobberPhase,
+  TroublemakerPhase,
+  DrunkPhase,
+  InsomniacPhase,
+  GenericPhase, 
+  ActionResult 
+} from './night-phases';
 
-export const NightPhase = () => {
+export const NightPhase = React.memo(() => {
   const {
     gameState,
     privateState,
-    currentTurn,
-    nightAction,
-    actionResult
+    getCurrentTurnRole,
+    getCurrentTurnDisplay,
+    isMyTurn,
+    getNightAction,
+    getEffectiveActionResult,
+    nightNotes,
+    clearNightNotes
   } = useGameStore();
 
-  const { executeNightAction } = useSocket();
-  
-  const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
-  const [hasActed, setHasActed] = useState(false);
-
-  // 🔧 FIX: Obtener datos del privateState en lugar de usar currentTurn
+  // ✅ NUEVA ARQUITECTURA: Datos desde privateState con turn_timestamp
   const myRole = privateState?.your_role;
-  const currentTurnRole = privateState?.current_turn_role;
-  const isMyTurn = privateState?.is_your_turn;
-  const nightActionData = privateState?.night_action;
-
-  console.log('🔧 NIGHTPHASE DEBUG:', {
-    myRole,
-    currentTurnRole,
-    isMyTurn,
-    nightActionData,
-    privateState: !!privateState
-  });
-
-  // Timer countdown
-  useEffect(() => {
-    if (currentTurnRole) {
-      setTimeLeft(TURN_DURATION);
-      setHasActed(false);
-      
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
+  const myOriginalRole = privateState?.your_original_role || myRole;
+  const currentTurnRole = getCurrentTurnRole();
+  const isCurrentUserTurn = isMyTurn();
+  const nightActionData = getNightAction();
+  const actionResult = getEffectiveActionResult();
+  
+  // ✅ CRÍTICO: Crear currentTurn desde privateState para PhaseTimer
+  const currentTurnDisplay = useMemo(() => {
+    const storeTurn = getCurrentTurnDisplay();
+    if (storeTurn?.timestamp) {
+      return storeTurn;
     }
-  }, [currentTurnRole]);
-
-  const handleCenterCardClick = (position) => {
-    if (!isMyTurn || hasActed) return;
+    if (!privateState?.current_turn_role || !privateState?.turn_timestamp) {
+      return null;
+    }
     
-    executeNightAction({ center_position: position });
-    setHasActed(true);
-  };
+    return {
+      role: privateState.current_turn_role,
+      phase: `Fase: ${privateState.current_turn_role}`,
+      timestamp: privateState.turn_timestamp,
+      duration: TURN_DURATION
+    };
+  }, [privateState?.current_turn_role, privateState?.turn_timestamp, getCurrentTurnDisplay]);
 
-  const renderWerewolfAction = () => {
-    if (!nightActionData) {
-      console.log('🔧 NO HAY nightActionData');
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
-          <p className="text-white">Esperando datos del servidor...</p>
-        </div>
-      );
+  // ✅ OPTIMIZACIÓN: Un solo efecto simplificado para debugging
+  useEffect(() => {
+    console.log('🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA):', {
+      currentTurnRole,
+      isCurrentUserTurn,
+      hasNightAction: !!nightActionData,
+      hasActionResult: !!actionResult,
+      turn_timestamp: privateState?.turn_timestamp,
+      currentTurnDisplay,
+      timestamp: Date.now()
+    });
+  }, [currentTurnRole, isCurrentUserTurn, privateState?.turn_timestamp]);
+
+  useEffect(() => {
+    if (privateState?.phase !== 'night_phase') {
+      clearNightNotes();
     }
+  }, [privateState?.phase, clearNightNotes]);
 
-    console.log('🔧 RENDERIZANDO WEREWOLF ACTION:', nightActionData);
-
-    // Caso A: Mostrar el otro lobo
-    if (nightActionData.type === 'show_other_werewolf') {
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-          <h3 className="text-xl font-bold text-red-400 mb-4">
-            🐺 Otros Lobos
-          </h3>
-          <p className="text-white text-lg mb-4">
-            {nightActionData.message}
-          </p>
-          <div className="bg-red-800/50 rounded-lg p-4 mt-4">
-            <p className="text-red-200 font-bold text-2xl">
-              🐺 {nightActionData.other_werewolf_name}
-            </p>
-            <p className="text-red-300 text-sm mt-2">Es tu compañero lobo</p>
-          </div>
-          <p className="text-red-200 text-sm mt-4">
-            ¡Ambos conocéis vuestra identidad!
-          </p>
-        </div>
-      );
-    }
-
-    // Caso B: Elegir carta del centro
-    if (nightActionData.type === 'can_view_center') {
-      return (
-        <div className="bg-red-900/30 border border-red-500 rounded-lg p-6">
-          <h3 className="text-xl font-bold text-red-400 mb-4 text-center">
-            🐺 Eres el único lobo
-          </h3>
-          <p className="text-white text-center mb-6">
-            {nightActionData.message}
-          </p>
-          
-          <div className="grid grid-cols-3 gap-4">
-            {[0, 1, 2].map(position => (
-              <button
-                key={position}
-                onClick={() => handleCenterCardClick(position)}
-                disabled={hasActed}
-                className={`
-                  bg-slate-700 hover:bg-slate-600 disabled:opacity-50 
-                  border-2 border-yellow-500 rounded-lg p-4 transition-all duration-200
-                  ${hasActed ? 'cursor-not-allowed' : 'hover:border-yellow-400'}
-                `}
-              >
-                <div className="text-4xl mb-2">🃏</div>
-                <p className="text-white font-bold">Carta {position + 1}</p>
-              </button>
-            ))}
-          </div>
-          
-          {hasActed && (
-            <p className="text-green-400 text-center mt-4">
-              ✓ Has elegido una carta
-            </p>
-          )}
-        </div>
-      );
-    }
-
-    console.log('🔧 TIPO DE ACTION NO RECONOCIDO:', nightActionData.type);
-    return (
-      <div className="bg-red-900/30 border border-red-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-red-400 mb-4">🐺 Lobo</h3>
-        <p className="text-white">Tipo de acción no reconocido: {nightActionData.type}</p>
-      </div>
-    );
-  };
-
-  const renderActionResult = () => {
-    if (!actionResult || !actionResult.success) return null;
-
-    return (
-      <div className="bg-green-900/30 border border-green-500 rounded-lg p-4 mt-4">
-        <h4 className="text-green-400 font-bold mb-2">Resultado:</h4>
-        <p className="text-white">{actionResult.message}</p>
-      </div>
-    );
-  };
-
+  // ✅ OPTIMIZACIÓN: Función de render estable sin useMemo/useCallback
   const renderCurrentPhaseInfo = () => {
     if (!currentTurnRole) {
       return (
@@ -163,47 +84,97 @@ export const NightPhase = () => {
       );
     }
 
+    const isOpenEyes = currentTurnRole === 'open_eyes';
     const roleInfo = ROLES[currentTurnRole];
-    const isMyRoleTurn = isMyTurn;
 
     return (
       <div className={`rounded-lg p-6 border ${
-        isMyRoleTurn 
+        isCurrentUserTurn 
           ? 'bg-yellow-900/30 border-yellow-500' 
           : 'bg-slate-800 border-slate-600'
       }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{roleInfo?.emoji || '❓'}</span>
+            <span className="text-3xl">{isOpenEyes ? '👀' : (roleInfo?.emoji || '❓')}</span>
             <div>
               <h3 className="text-xl font-bold text-white">
-                Fase: {currentTurnRole}
+                {isOpenEyes ? 'Abrid los ojos todos' : `Fase: ${currentTurnRole}`}
               </h3>
-              {isMyRoleTurn && (
+              {isCurrentUserTurn && !isOpenEyes && (
                 <p className="text-yellow-400 font-medium">¡Es tu turno!</p>
               )}
             </div>
           </div>
-          
-          <div className="flex items-center gap-2 text-white">
-            <Clock size={20} />
-            <span className="font-bold text-lg">{timeLeft}s</span>
-          </div>
+          <PhaseTimer currentTurn={currentTurnDisplay} isMyTurn={isCurrentUserTurn} />
         </div>
-
-        {roleInfo && (
+        
+        {!isOpenEyes && roleInfo && (
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {/* 🔧 FIX: Mostrar acción de werewolf si es mi turno Y soy werewolf */}
-        {isMyRoleTurn && myRole === 'werewolf' && renderWerewolfAction()}
-        {actionResult && renderActionResult()}
-        
-        {!isMyRoleTurn && (
-          <p className="text-slate-400 text-center">
-            Esperando a que {currentTurnRole} complete su turno...
-          </p>
+        {/* Renderizar componente específico según el rol */}
+        {!isOpenEyes && currentTurnRole === 'werewolf' && (
+          <WerewolfPhase 
+            isMyTurn={isCurrentUserTurn} 
+            nightActionData={nightActionData} 
+            actionResult={actionResult} 
+          />
         )}
+        
+        {!isOpenEyes && currentTurnRole === 'mason' && (
+          <MasonPhase 
+            isMyTurn={isCurrentUserTurn} 
+            nightActionData={nightActionData} 
+          />
+        )}
+
+        {!isOpenEyes && currentTurnRole === 'seer' && (
+          <SeerPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
+
+        {!isOpenEyes && currentTurnRole === 'robber' && (
+          <RobberPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
+
+        {!isOpenEyes && currentTurnRole === 'troublemaker' && (
+          <TroublemakerPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
+
+        {!isOpenEyes && currentTurnRole === 'drunk' && (
+          <DrunkPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
+
+        {!isOpenEyes && currentTurnRole === 'insomniac' && (
+          <InsomniacPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+          />
+        )}
+        
+        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && currentTurnRole !== 'insomniac' && (
+          <GenericPhase 
+            currentTurnRole={currentTurnRole} 
+            isMyTurn={isCurrentUserTurn} 
+          />
+        )}
+
+        <ActionResult actionResult={actionResult} />
       </div>
     );
   };
@@ -226,14 +197,19 @@ export const NightPhase = () => {
         <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
           <h3 className="text-lg font-bold text-white mb-2">Tu Rol:</h3>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{ROLES[myRole]?.emoji || '❓'}</span>
+            <span className="text-3xl">{ROLES[myOriginalRole]?.emoji || '❓'}</span>
             <div>
               <p className="text-xl font-bold text-white">
-                {myRole ? ROLES[myRole]?.name : 'Desconocido'}
+                {myOriginalRole ? ROLES[myOriginalRole]?.name : 'Desconocido'}
               </p>
               <p className="text-slate-400">
-                Eres: {myRole || 'rol no asignado'}
+                Rol inicial: {myOriginalRole || 'rol no asignado'}
               </p>
+              {myRole && myOriginalRole && myRole !== myOriginalRole && (
+                <p className="text-amber-300">
+                  Rol actual: {ROLES[myRole]?.name || myRole}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -248,16 +224,39 @@ export const NightPhase = () => {
             Información:
           </h4>
           <div className="text-slate-300 text-sm space-y-1">
-            {isMyTurn ? (
-              <p>🎯 Es tu turno. Tienes {timeLeft} segundos para actuar.</p>
+            {isCurrentUserTurn ? (
+              <p>🎯 Es tu turno.</p>
             ) : (
               <p>⏱️ Esperando turno de: {currentTurnRole}</p>
             )}
             <p>🎭 Tu rol: {myRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
+            {nightNotes?.werewolf && myRole === 'werewolf' && (
+              <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
+            )}
+            {nightNotes?.mason && myRole === 'mason' && (
+              <p className="text-yellow-400 font-semibold">🔨 {nightNotes.mason}</p>
+            )}
+            {nightNotes?.seer && myRole === 'seer' && (
+              <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
+            )}
+            {privateState?.drunk_last_center !== undefined && myRole === 'drunk' && (
+              <p className="text-yellow-400 font-semibold">
+                🍺 Recuerda: elegiste la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'}.
+              </p>
+            )}
+            {/* Mostrar info del turno actual para todos */}
+            {currentTurnRole && (
+              <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-700">
+                <span className="font-bold text-cyan-300">Turno actual:</span> <span className="font-mono">{currentTurnRole}</span>
+                {nightActionData?.message && (
+                  <div className="text-slate-400 text-xs mt-1">{nightActionData.message}</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
-};
+});

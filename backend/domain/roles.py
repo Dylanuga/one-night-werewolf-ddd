@@ -27,6 +27,15 @@ class Role(ABC):
         """Define el orden de turnos en la noche"""
         pass
     
+    def can_act_at_night(self) -> bool:
+        """Determina si este rol tiene acciones nocturnas"""
+        # Por defecto, los roles con turn_order < 999 pueden actuar
+        return self.get_turn_order() < 999
+    
+    def get_turn_order(self) -> int:
+        """Retorna el orden de turno de este rol"""
+        return self.turn_order
+    
     @abstractmethod
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Retorna los datos que necesita ver el jugador en su turno nocturno"""
@@ -98,9 +107,24 @@ class WerewolfRole(Role):
             center_pos = action_data['center_position']
             if 0 <= center_pos <= 2:
                 center_role = game_state['center_cards'][center_pos]
+                role_names = {
+                    'werewolf': 'lobo',
+                    'villager': 'aldeano',
+                    'seer': 'pitonisa',
+                    'robber': 'ladron',
+                    'troublemaker': 'alborotador',
+                    'tanner': 'curtidor',
+                    'drunk': 'borracho',
+                    'mason': 'mason',
+                    'hunter': 'cazador',
+                    'insomniac': 'insomne'
+                }
+                pos_names = {0: 'izquierda', 1: 'centro', 2: 'derecha'}
+                role_name = role_names.get(center_role, center_role)
+                pos_name = pos_names.get(center_pos, str(center_pos + 1))
                 return {
                     'success': True,
-                    'message': f'Carta del centro {center_pos + 1}: {center_role}',
+                    'message': f'Has visto {role_name} en la {pos_name}',
                     'center_position': center_pos,
                     'center_role': center_role
                 }
@@ -123,21 +147,101 @@ class VillagerRole(Role):
         return {'success': False, 'message': 'Los aldeanos no tienen acciones nocturnas'}
 
 class SeerRole(Role):
-    """Rol de la vidente/pitonisa (para futuras implementaciones)"""
+    """Rol de la vidente/pitonisa"""
     
     def __init__(self):
         super().__init__(RoleType.SEER)
     
     def _get_turn_order(self) -> int:
-        return 2  # La pitonisa va después de los lobos
+        return 3  # La pitonisa va despues de los masones
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        # La pitonisa puede ver la carta de otro jugador o dos cartas del centro
+        players = [
+            {'id': pid, 'name': player['name']}
+            for pid, player in game_state['players'].items()
+            if pid != player_id
+        ]
+
+        return {
+            'type': 'seer_choose',
+            'message': 'Puedes ver la carta de otro jugador o dos cartas del centro.',
+            'players': players,
+            'center_positions': [0, 1, 2]
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        # TODO: Implementar en el futuro
-        return {'success': False, 'message': 'Pitonisa no implementada aún'}
+        # Ver la carta de otro jugador
+        target_player_id = action_data.get('target_player_id')
+        if target_player_id:
+            if target_player_id == player_id:
+                return {'success': False, 'message': 'No puedes ver tu propia carta'}
+            target_player = game_state['players'].get(target_player_id)
+            if not target_player:
+                return {'success': False, 'message': 'Jugador no valido'}
+            target_role = target_player['role']
+            target_name = target_player['name']
+            role_names = {
+                'werewolf': 'lobo',
+                'villager': 'aldeano',
+                'seer': 'pitonisa',
+                'robber': 'ladron',
+                'troublemaker': 'alborotador',
+                'tanner': 'curtidor',
+                'drunk': 'borracho',
+                'mason': 'mason',
+                'hunter': 'cazador',
+                'insomniac': 'insomne'
+            }
+            role_name = role_names.get(target_role, target_role)
+            return {
+                'success': True,
+                'message': f'{target_name} es {role_name}',
+                'seen_player': {
+                    'id': target_player_id,
+                    'name': target_name,
+                    'role': target_role
+                }
+            }
+
+        # Ver dos cartas del centro
+        center_positions = action_data.get('center_positions')
+        if isinstance(center_positions, list) and len(center_positions) == 2:
+            pos_a, pos_b = center_positions[0], center_positions[1]
+            if pos_a == pos_b:
+                return {'success': False, 'message': 'Debes elegir dos cartas distintas'}
+            if not all(isinstance(pos, int) and 0 <= pos <= 2 for pos in [pos_a, pos_b]):
+                return {'success': False, 'message': 'Posiciones de centro invalidas'}
+
+            role_a = game_state['center_cards'][pos_a]
+            role_b = game_state['center_cards'][pos_b]
+            role_names = {
+                'werewolf': 'lobo',
+                'villager': 'aldeano',
+                'seer': 'pitonisa',
+                'robber': 'ladron',
+                'troublemaker': 'alborotador',
+                'tanner': 'curtidor',
+                'drunk': 'borracho',
+                'mason': 'mason',
+                'hunter': 'cazador',
+                'insomniac': 'insomne'
+            }
+            pos_names = {0: 'izquierda', 1: 'centro', 2: 'derecha'}
+            role_a_name = role_names.get(role_a, role_a)
+            role_b_name = role_names.get(role_b, role_b)
+            pos_a_name = pos_names.get(pos_a, str(pos_a + 1))
+            pos_b_name = pos_names.get(pos_b, str(pos_b + 1))
+            return {
+                'success': True,
+                'message': f'Has visto {role_a_name} en la {pos_a_name} y {role_b_name} en la {pos_b_name}',
+                'seen_center': [
+                    {'position': pos_a, 'role': role_a},
+                    {'position': pos_b, 'role': role_b}
+                ]
+            }
+
+        return {'success': False, 'message': 'Accion no valida'}
 
 class RobberRole(Role):
     """Rol del ladrón (para futuras implementaciones)"""
@@ -146,11 +250,21 @@ class RobberRole(Role):
         super().__init__(RoleType.ROBBER)
     
     def _get_turn_order(self) -> int:
-        return 3  # El ladrón va después de la pitonisa
+        return 4  # El ladr?n va despu?s de la pitonisa
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        # El ladrón solo puede robar a otros jugadores (no al centro)
+        players = [
+            {'id': pid, 'name': player['name']}
+            for pid, player in game_state['players'].items()
+            if pid != player_id
+        ]
+
+        return {
+            'type': 'robber_choose',
+            'message': 'Elige un jugador para robar su rol (no puedes elegirte a ti mismo).',
+            'players': players
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro
@@ -163,11 +277,20 @@ class TroublemakerRole(Role):
         super().__init__(RoleType.TROUBLEMAKER)
     
     def _get_turn_order(self) -> int:
-        return 4  # El alborotador va después del ladrón
+        return 5  # El alborotador va despu?s del ladr?n
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        # El alborotador elige dos jugadores (puede elegirse a s? mismo)
+        players = [
+            {'id': pid, 'name': player['name']}
+            for pid, player in game_state['players'].items()
+        ]
+
+        return {
+            'type': 'troublemaker_choose',
+            'message': 'Elige dos jugadores para intercambiar sus roles (puede incluirte).',
+            'players': players
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro
@@ -196,11 +319,14 @@ class DrunkRole(Role):
         super().__init__(RoleType.DRUNK)
     
     def _get_turn_order(self) -> int:
-        return 5  # El borracho va después del alborotador
+        return 6  # El borracho va despu?s del alborotador
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        return {
+            'type': 'drunk_choose_center',
+            'message': 'Elige una carta del centro para intercambiarla con la tuya (no la verás).',
+            'center_positions': [0, 1, 2]
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro
@@ -213,14 +339,48 @@ class MasonRole(Role):
         super().__init__(RoleType.MASON)
     
     def _get_turn_order(self) -> int:
-        return 999  # Los masones no tienen turno nocturno (se ven automáticamente)
+        return 2  # Los masones van después de los lobos
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro  
+        """
+        Los masones se reconocen entre ellos.
+        Si está solo, aparece el mensaje "Estás solo".
+        Si ambos están en el centro, los demás esperan 6 segundos.
+        """
+        masons_in_game = [
+            pid for pid, player in game_state['players'].items() 
+            if player['role'] == 'mason'
+        ]
+        
+        masons_in_center = [
+            i for i, role in enumerate(game_state['center_cards']) 
+            if role == 'mason'
+        ]
+        
+        # Caso A: Dos masones entre jugadores - se reconocen
+        if len(masons_in_game) == 2:
+            other_mason = [mid for mid in masons_in_game if mid != player_id][0]
+            other_mason_name = game_state['players'][other_mason]['name']
+            return {
+                'type': 'show_other_mason',
+                'other_mason_name': other_mason_name,
+                'message': f'Tu compañero masón es: {other_mason_name}'
+            }
+        
+        # Caso B: Un masón entre jugadores (el otro está en el centro) - está solo
+        elif len(masons_in_game) == 1:
+            return {
+                'type': 'alone',
+                'message': 'Estás solo. Tu compañero masón no está en juego.'
+            }
+        
+        # Caso C: Ambos masones están en el centro - no hay masones activos
+        # Este caso se maneja en la lógica de juego principal (espera de 6 segundos)
         return None
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        return {'success': False, 'message': 'Masón no implementado aún'}
+        # Los masones no realizan acciones, solo se reconocen automáticamente
+        return {'success': True, 'message': 'Los masones se han reconocido'}
 
 class HunterRole(Role):
     """Rol del cazador - si muere, también muere el jugador al que apunte"""
@@ -244,15 +404,34 @@ class InsomniacRole(Role):
         super().__init__(RoleType.INSOMNIAC)
     
     def _get_turn_order(self) -> int:
-        return 6  # El insomne va al final de todos los turnos
+        return 7  # El insomne va al final de todos los turnos
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        player = game_state['players'].get(player_id)
+        if not player:
+            return None
+        current_role = player.get('role')
+        role_names = {
+            'werewolf': 'lobo',
+            'villager': 'aldeano',
+            'seer': 'pitonisa',
+            'robber': 'ladrón',
+            'troublemaker': 'alborotadora',
+            'tanner': 'curtidor',
+            'drunk': 'borracho',
+            'mason': 'masón',
+            'hunter': 'cazador',
+            'insomniac': 'insomne'
+        }
+        role_name = role_names.get(current_role, current_role)
+        return {
+            'type': 'insomniac_reveal',
+            'message': f'Al despertarte antes de tiempo tu nuevo rol es: {role_name}.',
+            'current_role': current_role
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
-        # TODO: Implementar en el futuro
-        return {'success': False, 'message': 'Insomne no implementado aún'}
+        return {'success': True, 'message': 'Insomne: información revelada'}
 
 # Factory para crear roles
 class RoleFactory:
