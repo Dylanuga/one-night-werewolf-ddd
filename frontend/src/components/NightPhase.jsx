@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Eye } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { ROLES } from '../utils/constants';
+import { ROLES, TURN_DURATION } from '../utils/constants';
 import { 
   PhaseTimer, 
   WerewolfPhase, 
@@ -39,7 +39,7 @@ export const NightPhase = React.memo(() => {
       role: privateState.current_turn_role,
       phase: `Fase: ${privateState.current_turn_role}`,
       timestamp: privateState.turn_timestamp,
-      duration: 6  // TURN_DURATION
+      duration: TURN_DURATION
     };
   }, [privateState?.current_turn_role, privateState?.turn_timestamp]);
 

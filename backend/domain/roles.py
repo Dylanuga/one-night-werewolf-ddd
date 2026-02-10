@@ -107,9 +107,24 @@ class WerewolfRole(Role):
             center_pos = action_data['center_position']
             if 0 <= center_pos <= 2:
                 center_role = game_state['center_cards'][center_pos]
+                role_names = {
+                    'werewolf': 'lobo',
+                    'villager': 'aldeano',
+                    'seer': 'pitonisa',
+                    'robber': 'ladron',
+                    'troublemaker': 'alborotador',
+                    'tanner': 'curtidor',
+                    'drunk': 'borracho',
+                    'mason': 'mason',
+                    'hunter': 'cazador',
+                    'insomniac': 'insomne'
+                }
+                pos_names = {0: 'izquierda', 1: 'centro', 2: 'derecha'}
+                role_name = role_names.get(center_role, center_role)
+                pos_name = pos_names.get(center_pos, str(center_pos + 1))
                 return {
                     'success': True,
-                    'message': f'Carta del centro {center_pos + 1}: {center_role}',
+                    'message': f'Has visto {role_name} en la {pos_name}',
                     'center_position': center_pos,
                     'center_role': center_role
                 }
@@ -166,9 +181,22 @@ class SeerRole(Role):
                 return {'success': False, 'message': 'Jugador no valido'}
             target_role = target_player['role']
             target_name = target_player['name']
+            role_names = {
+                'werewolf': 'lobo',
+                'villager': 'aldeano',
+                'seer': 'pitonisa',
+                'robber': 'ladron',
+                'troublemaker': 'alborotador',
+                'tanner': 'curtidor',
+                'drunk': 'borracho',
+                'mason': 'mason',
+                'hunter': 'cazador',
+                'insomniac': 'insomne'
+            }
+            role_name = role_names.get(target_role, target_role)
             return {
                 'success': True,
-                'message': f'Has visto el rol de {target_name}: {target_role}',
+                'message': f'{target_name} es {role_name}',
                 'seen_player': {
                     'id': target_player_id,
                     'name': target_name,
@@ -187,9 +215,26 @@ class SeerRole(Role):
 
             role_a = game_state['center_cards'][pos_a]
             role_b = game_state['center_cards'][pos_b]
+            role_names = {
+                'werewolf': 'lobo',
+                'villager': 'aldeano',
+                'seer': 'pitonisa',
+                'robber': 'ladron',
+                'troublemaker': 'alborotador',
+                'tanner': 'curtidor',
+                'drunk': 'borracho',
+                'mason': 'mason',
+                'hunter': 'cazador',
+                'insomniac': 'insomne'
+            }
+            pos_names = {0: 'izquierda', 1: 'centro', 2: 'derecha'}
+            role_a_name = role_names.get(role_a, role_a)
+            role_b_name = role_names.get(role_b, role_b)
+            pos_a_name = pos_names.get(pos_a, str(pos_a + 1))
+            pos_b_name = pos_names.get(pos_b, str(pos_b + 1))
             return {
                 'success': True,
-                'message': f'Has visto las cartas del centro {pos_a + 1} y {pos_b + 1}',
+                'message': f'Has visto {role_a_name} en la {pos_a_name} y {role_b_name} en la {pos_b_name}',
                 'seen_center': [
                     {'position': pos_a, 'role': role_a},
                     {'position': pos_b, 'role': role_b}

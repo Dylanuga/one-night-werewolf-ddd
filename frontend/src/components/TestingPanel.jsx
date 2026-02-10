@@ -18,6 +18,7 @@ const TestingPanel = ({ onBack }) => {
   ]);
   const [customCenterRoles, setCustomCenterRoles] = useState(['seer', 'robber', 'villager']);
   const [customAutoStart, setCustomAutoStart] = useState(true);
+  const [testTurnDuration, setTestTurnDuration] = useState(15);
   const [assignMode, setAssignMode] = useState('player');
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const [selectedCenterIndex, setSelectedCenterIndex] = useState(0);
@@ -224,7 +225,8 @@ const TestingPanel = ({ onBack }) => {
             center: centerRoles
           },
           player_names: players,
-          auto_start: customAutoStart
+          auto_start: customAutoStart,
+          turn_duration: testTurnDuration
         })
       });
 
@@ -511,6 +513,23 @@ const TestingPanel = ({ onBack }) => {
                 />
                 Iniciar juego automaticamente
               </label>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Duracion de turno (segundos):
+                </label>
+                <input
+                  type="number"
+                  min={5}
+                  max={30}
+                  value={testTurnDuration}
+                  onChange={(e) => setTestTurnDuration(Number(e.target.value))}
+                  className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white"
+                />
+                <p className="text-slate-400 text-xs mt-1">
+                  Solo aplica al modo de prueba (recomendado 15s).
+                </p>
+              </div>
 
               <button
                 onClick={createCustomTestRoom}

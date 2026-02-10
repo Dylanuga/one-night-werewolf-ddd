@@ -74,7 +74,7 @@ export const ROLES = {
   }
 };
 
-export const TURN_DURATION = 6; // segundos
+export const TURN_DURATION = 12; // segundos
 
 export const SOCKET_EVENTS = {
   // Cliente -> Servidor

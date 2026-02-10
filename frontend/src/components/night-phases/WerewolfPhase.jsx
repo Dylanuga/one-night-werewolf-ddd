@@ -115,7 +115,21 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
             </p>
             {actionResult.center_role && (
               <p className="text-white text-center mt-2">
-                🃏 Has visto: <span className="font-bold text-yellow-400">{actionResult.center_role}</span>
+                🃏 Has visto ({['izquierda', 'centro', 'derecha'][actionResult.center_position] || 'izquierda'}):{' '}
+                <span className="font-bold text-yellow-400">
+                  {({
+                    werewolf: 'lobo',
+                    villager: 'aldeano',
+                    seer: 'pitonisa',
+                    robber: 'ladron',
+                    troublemaker: 'alborotador',
+                    tanner: 'curtidor',
+                    drunk: 'borracho',
+                    mason: 'mason',
+                    hunter: 'cazador',
+                    insomniac: 'insomne'
+                  }[actionResult.center_role] || actionResult.center_role)}
+                </span>
               </p>
             )}
           </div>

@@ -25,6 +25,19 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   }, [actionResult]);
 
   const players = useMemo(() => nightActionData?.players || [], [nightActionData]);
+  const roleNameMap = useMemo(() => ({
+    werewolf: 'lobo',
+    villager: 'aldeano',
+    seer: 'pitonisa',
+    robber: 'ladron',
+    troublemaker: 'alborotador',
+    tanner: 'curtidor',
+    drunk: 'borracho',
+    mason: 'mason',
+    hunter: 'cazador',
+    insomniac: 'insomne'
+  }), []);
+  const posNames = ['izquierda', 'centro', 'derecha'];
 
   const toggleCenter = useCallback((pos) => {
     if (hasActed) return;
@@ -174,16 +187,20 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
           <p className="text-green-400 text-center font-bold">✓ {actionResult.message}</p>
           {actionResult.seen_player && (
             <p className="text-white text-center mt-2">
-              👤 {actionResult.seen_player.name}: <span className="font-bold">{actionResult.seen_player.role}</span>
+              👤 {actionResult.seen_player.name} es <span className="font-bold">{roleNameMap[actionResult.seen_player.role] || actionResult.seen_player.role}</span>
             </p>
           )}
           {actionResult.seen_center && (
             <div className="text-white text-center mt-2">
-              {actionResult.seen_center.map(card => (
-                <div key={card.position}>
-                  🃏 Centro {card.position + 1}: <span className="font-bold">{card.role}</span>
-                </div>
-              ))}
+              {actionResult.seen_center.map(card => {
+                const posLabel = posNames[card.position] || posNames[0];
+                const roleLabel = roleNameMap[card.role] || card.role;
+                return (
+                  <div key={card.position}>
+                    🃏 {posLabel}: <span className="font-bold">{roleLabel}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

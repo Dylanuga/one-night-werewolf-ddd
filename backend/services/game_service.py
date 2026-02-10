@@ -19,7 +19,8 @@ class GameService:
         self.start_background_task = start_background_task
         self.sleep_fn = sleep_fn
         self.turn_timer_tokens: Dict[str, int] = {}
-        self.TURN_DURATION = 6  # segundos
+        self.TURN_DURATION = 12  # segundos (default)
+        self.turn_duration_by_room: Dict[str, int] = {}
 
     def create_room(self, room_code: str, host_id: str, host_name: str, socket_id: str) -> bool:
         """Crea una nueva sala de juego"""
@@ -27,14 +28,14 @@ class GameService:
             print(f"🏠 CREATE_ROOM INICIADO: {room_code}, host: {host_name} ({host_id})")
             
             if self.room_repository.room_exists(room_code):
-                print(f"❌ CREATE_ROOM FALLÓ: Sala {room_code} ya existe")
+                print(f"❌ CREATE_ROOM FALLO: Sala {room_code} ya existe")
                 return False
             
             game = GameLogic(room_code)
             success = game.add_player(host_id, host_name, socket_id, is_host=True)
             
             if success:
-                print(f"✅ Jugador host {host_name} añadido exitosamente")
+                print(f"✅ Jugador host {host_name} anadido exitosamente")
                 self.room_repository.save_game(room_code, game)
                 print(f"✅ Sala {room_code} guardada en repository")
                 
@@ -43,7 +44,7 @@ class GameService:
                 print(f"✅ CREATE_ROOM COMPLETADO: {room_code}")
                 return True
             else:
-                print(f"❌ CREATE_ROOM FALLÓ: No se pudo añadir jugador host")
+                print(f"❌ CREATE_ROOM FALLO: No se pudo anadir jugador host")
                 return False
             
         except Exception as e:
@@ -51,6 +52,22 @@ class GameService:
             import traceback
             traceback.print_exc()
             return False
+
+    def set_turn_duration(self, room_code: str, duration_seconds: int) -> bool:
+        """Ajusta la duracion del turno para una sala especifica (solo testing)"""
+        try:
+            if not isinstance(duration_seconds, int) or duration_seconds < 1:
+                return False
+            self.turn_timer_tokens[room_code] = self.turn_timer_tokens.get(room_code, 0)
+            self.turn_duration_by_room[room_code] = duration_seconds
+            print(f"🕒 TURN_DURATION actualizado a {duration_seconds}s para sala {room_code}")
+            return True
+        except Exception as e:
+            print(f"Error en set_turn_duration: {e}")
+            return False
+
+    def _get_turn_duration(self, room_code: str) -> int:
+        return self.turn_duration_by_room.get(room_code, self.TURN_DURATION)
 
     def join_room(self, room_code: str, player_id: str, player_name: str, socket_id: str) -> bool:
         """Un jugador se une a una sala existente"""
@@ -384,7 +401,7 @@ class GameService:
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
-                'duration': self.TURN_DURATION,
+                'duration': self._get_turn_duration(room_code),
                 'timestamp': turn_timestamp
             }
             
@@ -571,7 +588,7 @@ class GameService:
             def timer_task(expected_token: int):
                 try:
                     # Sleep no bloqueante compatible con eventlet/Socket.IO
-                    self.sleep_fn(self.TURN_DURATION)
+                    self.sleep_fn(self._get_turn_duration(room_code))
                     
                     # Si hubo un cancel o un nuevo timer, abortar
                     if self.turn_timer_tokens.get(room_code) != expected_token:
@@ -585,12 +602,12 @@ class GameService:
             # Iniciar tarea en background
             self.start_background_task(timer_task, token)
             
-            print(f"🔧 TIMER INICIADO: {self.TURN_DURATION}s para sala {room_code}, rol {current_role}")
+            print(f"🔧 TIMER INICIADO: {self._get_turn_duration(room_code)}s para sala {room_code}, rol {current_role}")
             
             # Registrar un log con el momento exacto del inicio del timer
             start_time = time.strftime("%H:%M:%S", time.localtime())
             expected_end = time.strftime("%H:%M:%S", 
-                                         time.localtime(time.time() + self.TURN_DURATION))
+                                         time.localtime(time.time() + self._get_turn_duration(room_code)))
             print(f"⏱️ Timer iniciado a las {start_time}, terminará a las {expected_end}")
             
         except Exception as e:

@@ -46,6 +46,7 @@ def create_test_room():
         role_distribution = data.get('role_distribution')
         auto_start = data.get('auto_start', False)
         custom_player_names = data.get('player_names', [])
+        turn_duration = data.get('turn_duration')
         
         # Validar entrada
         if not role_distribution:
@@ -147,6 +148,11 @@ def create_test_room():
             'test_mode': True,
             'game_started': False
         }
+
+        # Opcional: ajustar duracion del turno para pruebas
+        if isinstance(turn_duration, (int, float)) and 1 <= turn_duration <= 60:
+            game_service.set_turn_duration(room_code, int(turn_duration))
+            result['turn_duration'] = int(turn_duration)
         
         # Si auto_start está activado, iniciar el juego
         if auto_start:
