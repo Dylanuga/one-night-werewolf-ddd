@@ -540,6 +540,83 @@ def on_start_game(data=None):
         print(f"Error iniciando juego: {e}")
         emit('error', {'message': 'Error interno del servidor'})
 
+@socketio.on('end_discussion')
+def on_end_discussion(data=None):
+    """El host finaliza la discusión e inicia votación."""
+    try:
+        if request.sid not in connected_players:
+            emit('error', {'message': 'No estás en ninguna sala'})
+            return
+
+        player_id = connected_players[request.sid]
+        room_code = game_service.get_player_room(player_id)
+
+        if not room_code:
+            emit('error', {'message': 'No se encontró tu sala'})
+            return
+
+        success = game_service.start_voting_phase(room_code, player_id)
+        if not success:
+            emit('error', {'message': 'No se pudo iniciar votación'})
+            return
+
+    except Exception as e:
+        print(f"Error iniciando votación: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
+
+@socketio.on('submit_vote')
+def on_submit_vote(data):
+    """Un jugador envía su voto."""
+    try:
+        if request.sid not in connected_players:
+            emit('error', {'message': 'No estás en ninguna sala'})
+            return
+
+        player_id = connected_players[request.sid]
+        room_code = game_service.get_player_room(player_id)
+        target_id = data.get('target_player_id')
+
+        if not room_code:
+            emit('error', {'message': 'No se encontró tu sala'})
+            return
+        if not target_id:
+            emit('error', {'message': 'Voto inválido'})
+            return
+
+        result = game_service.submit_vote(room_code, player_id, target_id)
+        if result.get('success') is False:
+            emit('error', {'message': result.get('message', 'Error al votar')})
+        else:
+            emit('vote_received', {'success': True})
+
+    except Exception as e:
+        print(f"Error enviando voto: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
+
+@socketio.on('end_voting')
+def on_end_voting(data=None):
+    """El host finaliza la votación y revela resultados."""
+    try:
+        if request.sid not in connected_players:
+            emit('error', {'message': 'No estás en ninguna sala'})
+            return
+
+        player_id = connected_players[request.sid]
+        room_code = game_service.get_player_room(player_id)
+
+        if not room_code:
+            emit('error', {'message': 'No se encontró tu sala'})
+            return
+
+        success = game_service.end_voting_phase(room_code, player_id)
+        if not success:
+            emit('error', {'message': 'No se pudo revelar (faltan votos o no eres host)'})
+            return
+
+    except Exception as e:
+        print(f"Error finalizando votación: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
+
 @socketio.on('night_action')
 def on_night_action(data):
     """Un jugador ejecuta su acción nocturna"""

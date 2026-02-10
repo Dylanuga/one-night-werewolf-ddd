@@ -84,6 +84,9 @@ export const SOCKET_EVENTS = {
   SET_ROLES: 'set_roles',
   START_GAME: 'start_game',
   NIGHT_ACTION: 'night_action',
+  END_DISCUSSION: 'end_discussion',
+  SUBMIT_VOTE: 'submit_vote',
+  END_VOTING: 'end_voting',
   GET_GAME_STATE: 'get_game_state',
   ADVANCE_TURN: 'advance_turn', // 🆕 Nuevo evento para avanzar turno manualmente
   
@@ -98,6 +101,10 @@ export const SOCKET_EVENTS = {
   PRIVATE_UPDATE: 'private_update',
   TURN_START: 'turn_start',
   ACTION_RESULT: 'action_result',
+  VOTING_STARTED: 'voting_started',
+  VOTE_RECEIVED: 'vote_received',
+  REVEAL: 'reveal',
+  GAME_END: 'game_end',
   GAME_STATE: 'game_state',
   ERROR: 'error'
 };

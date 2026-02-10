@@ -214,7 +214,7 @@ class GameService:
             
             if not current_role:
                 print(f"🔧 No hay turnos nocturnos, avanzando a día")
-                self._advance_to_day_phase(room_code)
+                self._start_open_eyes_phase(room_code)
                 return
             
             # ✅ ARQUITECTURA UNIFICADA: _emit_turn_start maneja todo
@@ -261,6 +261,96 @@ class GameService:
             print(f"[PHASE] día en sala {room_code}")
         except Exception as e:
             print(f"Error en _advance_to_day_phase: {e}")
+
+    def _start_open_eyes_phase(self, room_code: str):
+        """Muestra mensaje de transición antes del día."""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return
+
+            # Emitir mensaje "Abrid los ojos todos" por 6 segundos
+            self._emit_turn_start(room_code, 'open_eyes', duration_override=6)
+
+            def finish_transition():
+                try:
+                    game = self.room_repository.get_game(room_code)
+                    if not game:
+                        return
+                    game.phase = GamePhase.DAY_PHASE
+                    game.night_finished = False
+                    self.room_repository.save_game(room_code, game)
+                    self._advance_to_day_phase(room_code)
+                except Exception as e:
+                    print(f"Error en finish_transition: {e}")
+
+            def transition_task():
+                self.sleep_fn(6)
+                finish_transition()
+            self.start_background_task(transition_task)
+        except Exception as e:
+            print(f"Error en _start_open_eyes_phase: {e}")
+
+    def start_voting_phase(self, room_code: str, host_id: str) -> bool:
+        """El host finaliza discusión e inicia votación."""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            if host_id not in game.players or not game.players[host_id].is_host:
+                return False
+            if not game.start_voting_phase():
+                return False
+
+            self.room_repository.save_game(room_code, game)
+            self._emit_game_update(room_code)
+            self.emit_callback('voting_started', {'room_code': room_code}, room=room_code)
+            return True
+        except Exception as e:
+            print(f"Error en start_voting_phase: {e}")
+            return False
+
+    def submit_vote(self, room_code: str, player_id: str, target_id: str) -> Dict[str, Any]:
+        """Registra un voto y finaliza partida si todos votaron."""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return {'success': False, 'message': 'Sala no encontrada'}
+
+            result = game.submit_vote(player_id, target_id)
+            if result.get('success'):
+                self.room_repository.save_game(room_code, game)
+                self._emit_game_update(room_code)
+
+            return result
+        except Exception as e:
+            print(f"Error en submit_vote: {e}")
+            return {'success': False, 'message': 'Error interno del servidor'}
+
+    def end_voting_phase(self, room_code: str, host_id: str) -> bool:
+        """El host finaliza votación y revela resultados."""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            if host_id not in game.players or not game.players[host_id].is_host:
+                return False
+            if game.phase == GamePhase.GAME_END:
+                return True
+            if not game.can_finalize():
+                return False
+
+            # Finalizar y revelar
+            game._finalize_game()
+            self.room_repository.save_game(room_code, game)
+            self._emit_game_update(room_code)
+            reveal_data = game.get_reveal_data()
+            self.emit_callback('reveal', reveal_data, room=room_code)
+            self.emit_callback('game_end', reveal_data, room=room_code)
+            return True
+        except Exception as e:
+            print(f"Error en end_voting_phase: {e}")
+            return False
 
     def _emit_game_update(self, room_code: str):
         """Emite actualización del estado del juego a todos los jugadores"""
@@ -342,7 +432,7 @@ class GameService:
             import traceback
             traceback.print_exc()
 
-    def _emit_turn_start(self, room_code: str, role: str):
+    def _emit_turn_start(self, room_code: str, role: str, duration_override: Optional[int] = None):
         """🔧 FIX ARQUITECTURAL: Emite el evento de inicio de turno Y actualiza estados privados de manera unificada"""
         try:
             game = self.room_repository.get_game(room_code)
@@ -356,7 +446,7 @@ class GameService:
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
-                'duration': self._get_turn_duration(room_code),
+                'duration': duration_override if duration_override is not None else self._get_turn_duration(room_code),
                 'timestamp': turn_timestamp
             }
             
@@ -594,6 +684,13 @@ class GameService:
                     robber_id = auto_result.get('robber_player_id')
                     if robber_id:
                         self._emit_to_player(room_code, robber_id, 'action_result', auto_result)
+            # ✅ Auto-acción de la alborotadora si no hizo click antes de expirar el turno
+            if current_role_before == 'troublemaker':
+                auto_result = game.execute_troublemaker_auto_action()
+                if auto_result.get('success'):
+                    troublemaker_id = auto_result.get('troublemaker_player_id')
+                    if troublemaker_id:
+                        self._emit_to_player(room_code, troublemaker_id, 'action_result', auto_result)
             
             # Avanzar al siguiente turno
             advanced = game.advance_night_turn()
@@ -606,15 +703,10 @@ class GameService:
                 return
             
             # Verificar si la noche terminó
-            if game.phase == GamePhase.DAY_PHASE:
-                # ✅ ARQUITECTURA UNIFICADA: Solo usar _emit_game_update que ya incluye private_update para todos
-                self._emit_game_update(room_code)
-                    
-                # Pequeña pausa para asegurar que los clientes reciban las actualizaciones
-                time.sleep(0.1)
-                
-                # Avanzar a la fase de día
-                self._advance_to_day_phase(room_code)
+            if game.night_finished:
+                # Transición de 6 segundos antes del día
+                self.room_repository.save_game(room_code, game)
+                self._start_open_eyes_phase(room_code)
             else:
                 # Continuar con el siguiente turno
                 current_role = game.get_current_turn_role()

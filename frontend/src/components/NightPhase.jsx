@@ -9,6 +9,7 @@ import {
   MasonPhase, 
   SeerPhase,
   RobberPhase,
+  TroublemakerPhase,
   GenericPhase, 
   ActionResult 
 } from './night-phases';
@@ -18,6 +19,7 @@ export const NightPhase = React.memo(() => {
     gameState,
     privateState,
     getCurrentTurnRole,
+    getCurrentTurnDisplay,
     isMyTurn,
     getNightAction,
     getEffectiveActionResult
@@ -33,6 +35,10 @@ export const NightPhase = React.memo(() => {
   
   // ✅ CRÍTICO: Crear currentTurn desde privateState para PhaseTimer
   const currentTurnDisplay = useMemo(() => {
+    const storeTurn = getCurrentTurnDisplay();
+    if (storeTurn?.timestamp) {
+      return storeTurn;
+    }
     if (!privateState?.current_turn_role || !privateState?.turn_timestamp) {
       return null;
     }
@@ -43,7 +49,7 @@ export const NightPhase = React.memo(() => {
       timestamp: privateState.turn_timestamp,
       duration: TURN_DURATION
     };
-  }, [privateState?.current_turn_role, privateState?.turn_timestamp]);
+  }, [privateState?.current_turn_role, privateState?.turn_timestamp, getCurrentTurnDisplay]);
 
   // ✅ OPTIMIZACIÓN: Un solo efecto simplificado para debugging
   useEffect(() => {
@@ -68,6 +74,7 @@ export const NightPhase = React.memo(() => {
       );
     }
 
+    const isOpenEyes = currentTurnRole === 'open_eyes';
     const roleInfo = ROLES[currentTurnRole];
 
     return (
@@ -78,12 +85,12 @@ export const NightPhase = React.memo(() => {
       }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{roleInfo?.emoji || '❓'}</span>
+            <span className="text-3xl">{isOpenEyes ? '👀' : (roleInfo?.emoji || '❓')}</span>
             <div>
               <h3 className="text-xl font-bold text-white">
-                Fase: {currentTurnRole}
+                {isOpenEyes ? 'Abrid los ojos todos' : `Fase: ${currentTurnRole}`}
               </h3>
-              {isCurrentUserTurn && (
+              {isCurrentUserTurn && !isOpenEyes && (
                 <p className="text-yellow-400 font-medium">¡Es tu turno!</p>
               )}
             </div>
@@ -91,12 +98,12 @@ export const NightPhase = React.memo(() => {
           <PhaseTimer currentTurn={currentTurnDisplay} isMyTurn={isCurrentUserTurn} />
         </div>
         
-        {roleInfo && (
+        {!isOpenEyes && roleInfo && (
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
         {/* Renderizar componente específico según el rol */}
-        {currentTurnRole === 'werewolf' && (
+        {!isOpenEyes && currentTurnRole === 'werewolf' && (
           <WerewolfPhase 
             isMyTurn={isCurrentUserTurn} 
             nightActionData={nightActionData} 
@@ -104,14 +111,14 @@ export const NightPhase = React.memo(() => {
           />
         )}
         
-        {currentTurnRole === 'mason' && (
+        {!isOpenEyes && currentTurnRole === 'mason' && (
           <MasonPhase 
             isMyTurn={isCurrentUserTurn} 
             nightActionData={nightActionData} 
           />
         )}
 
-        {currentTurnRole === 'seer' && (
+        {!isOpenEyes && currentTurnRole === 'seer' && (
           <SeerPhase
             isMyTurn={isCurrentUserTurn}
             nightActionData={nightActionData}
@@ -119,15 +126,23 @@ export const NightPhase = React.memo(() => {
           />
         )}
 
-        {currentTurnRole === 'robber' && (
+        {!isOpenEyes && currentTurnRole === 'robber' && (
           <RobberPhase
             isMyTurn={isCurrentUserTurn}
             nightActionData={nightActionData}
             actionResult={actionResult}
           />
         )}
+
+        {!isOpenEyes && currentTurnRole === 'troublemaker' && (
+          <TroublemakerPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
         
-        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && (
+        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
             isMyTurn={isCurrentUserTurn} 

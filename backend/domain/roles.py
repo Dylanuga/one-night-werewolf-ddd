@@ -280,8 +280,17 @@ class TroublemakerRole(Role):
         return 5  # El alborotador va despu?s del ladr?n
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        # El alborotador elige dos jugadores (puede elegirse a s? mismo)
+        players = [
+            {'id': pid, 'name': player['name']}
+            for pid, player in game_state['players'].items()
+        ]
+
+        return {
+            'type': 'troublemaker_choose',
+            'message': 'Elige dos jugadores para intercambiar sus roles (puede incluirte).',
+            'players': players
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro

@@ -5,6 +5,9 @@ import { useGameStore } from './store/gameStore';
 import { Lobby } from './components/Lobby';
 import { RoleSelector } from './components/RoleSelector';
 import { NightPhase } from './components/NightPhase';
+import { DayPhase } from './components/DayPhase';
+import { VotingPhase } from './components/VotingPhase';
+import { RevealPhase } from './components/RevealPhase';
 import { GameLog } from './components/GameLog';
 import TestingPanel from './components/TestingPanel';
 import { GAME_PHASES, SOCKET_URL, SOCKET_EVENTS } from './utils/constants';
@@ -26,6 +29,8 @@ function App() {
     setPrivateState,
     setCurrentTurnDisplay,
     setActionResult,
+    setRevealData,
+    setMyVote,
     setError,
     addLog,
     setSelectedRoles,
@@ -200,6 +205,8 @@ function App() {
       setGameState(null);
       setPrivateState(null);
       setSelectedRoles({});
+      setRevealData(null);
+      setMyVote(null);
     });
 
     // Eventos de juego
@@ -346,6 +353,26 @@ function App() {
       setActionResult(data);
     });
 
+    socket.on(SOCKET_EVENTS.VOTING_STARTED, (data) => {
+      console.log('🗳️ Votación iniciada:', data);
+      setMyVote(null);
+      addLog('Votación iniciada');
+    });
+
+    socket.on(SOCKET_EVENTS.VOTE_RECEIVED, () => {
+      console.log('🗳️ Voto recibido');
+    });
+
+    socket.on(SOCKET_EVENTS.REVEAL, (data) => {
+      console.log('🏁 Revelación:', data);
+      setRevealData(data);
+    });
+
+    socket.on(SOCKET_EVENTS.GAME_END, (data) => {
+      console.log('🏁 Fin de partida:', data);
+      setRevealData(data);
+    });
+
     socket.on(SOCKET_EVENTS.GAME_STATE, (data) => {
       console.log('📊 Estado del juego:', data);
       setGameState(data);
@@ -469,65 +496,13 @@ function App() {
         return <NightPhase />;
       
       case 'day_phase':
-        return (
-          <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-            <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
-              <div className="text-4xl mb-4">☀️</div>
-              <h2 className="text-2xl font-bold text-white mb-4">Amanecer</h2>
-              <p className="text-slate-400">
-                La fase nocturna ha terminado. ¡Próximamente: fase de discusión!
-              </p>
-              <div className="mt-6">
-                <button
-                  onClick={() => reset()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  Volver al Inicio
-                </button>
-              </div>
-            </div>
-          </div>
-        );
+        return <DayPhase isHost={isCurrentUserHost} />;
       
       case 'voting':
-        return (
-          <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-            <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
-              <div className="text-4xl mb-4">🗳️</div>
-              <h2 className="text-2xl font-bold text-white mb-4">Votación</h2>
-              <p className="text-slate-400">
-                ¡Próximamente: fase de votación!
-              </p>
-              <div className="mt-6">
-                <button
-                  onClick={() => reset()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  Volver al Inicio
-                </button>
-              </div>
-            </div>
-          </div>
-        );
+        return <VotingPhase />;
       
       case 'game_end':
-        return (
-          <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
-            <div className="bg-slate-800 rounded-lg p-8 max-w-md w-full border border-slate-700 text-center">
-              <div className="text-4xl mb-4">🏆</div>
-              <h2 className="text-2xl font-bold text-white mb-4">Fin del Juego</h2>
-              <p className="text-slate-400 mb-6">
-                ¡Próximamente: resultados y ganadores!
-              </p>
-              <button
-                onClick={() => reset()}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-              >
-                Jugar de Nuevo
-              </button>
-            </div>
-          </div>
-        );
+        return <RevealPhase />;
       
       case 'loading':
       default:

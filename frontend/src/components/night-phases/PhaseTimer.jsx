@@ -29,12 +29,14 @@ export const PhaseTimer = ({ currentTurn, isMyTurn }) => {
       // Calcular tiempo inicial basado en timestamp del servidor
       const now = Date.now();
       const elapsed = Math.floor((now - serverStartTime) / 1000);
-      const initialTime = Math.max(0, TURN_DURATION - elapsed);
+      const duration = currentTurn?.duration ?? TURN_DURATION;
+      const initialTime = Math.max(0, duration - elapsed);
       
       console.log('⏰ PhaseTimer - Calculando tiempo:', {
         elapsed,
         initialTime,
-        TURN_DURATION
+        TURN_DURATION,
+        duration
       });
       
       setTimeLeft(initialTime);
@@ -46,7 +48,7 @@ export const PhaseTimer = ({ currentTurn, isMyTurn }) => {
         timerRef.current = setInterval(() => {
           const currentTime = Date.now();
           const totalElapsed = Math.floor((currentTime - serverStartTime) / 1000);
-          const remaining = Math.max(0, TURN_DURATION - totalElapsed);
+          const remaining = Math.max(0, duration - totalElapsed);
           
           setTimeLeft(remaining);
           
@@ -62,7 +64,7 @@ export const PhaseTimer = ({ currentTurn, isMyTurn }) => {
       }
     } else {
       console.log('⏰ PhaseTimer - Sin timestamp, reseteando');
-      setTimeLeft(TURN_DURATION);
+      setTimeLeft(currentTurn?.duration ?? TURN_DURATION);
     }
 
     // Cleanup

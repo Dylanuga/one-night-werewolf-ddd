@@ -70,6 +70,8 @@ export const useGameStore = create((set, get) => ({
   
   // Resultado de la última acción
   actionResult: null,
+  revealData: null,
+  myVote: null,
   
   // Errores
   error: null,
@@ -334,6 +336,14 @@ export const useGameStore = create((set, get) => ({
       }
     }, 3000);
   },
+
+  setRevealData: (data) => {
+    const current = get().revealData;
+    if (current === data) return;
+    set({ revealData: data });
+  },
+
+  setMyVote: (vote) => set({ myVote: vote }),
   
   setError: (error) => {
     const current = get().error;
@@ -705,6 +715,25 @@ export const useGameStore = create((set, get) => ({
     const { emitEvent } = get();
     return emitEvent('get_game_state');
   },
+
+  endDiscussion: () => {
+    const { emitEvent } = get();
+    return emitEvent('end_discussion');
+  },
+
+  submitVote: (targetPlayerId) => {
+    const { emitEvent, setMyVote } = get();
+    const success = emitEvent('submit_vote', { target_player_id: targetPlayerId });
+    if (success) {
+      setMyVote(targetPlayerId);
+    }
+    return success;
+  },
+
+  endVoting: () => {
+    const { emitEvent } = get();
+    return emitEvent('end_voting');
+  },
   
   // Reset completo del estado
   reset: () => {
@@ -718,6 +747,8 @@ export const useGameStore = create((set, get) => ({
       privateState: null,
       currentTurnDisplay: null,
       actionResult: null,
+      revealData: null,
+      myVote: null,
       error: null,
       logs: [],
       playerName: '',

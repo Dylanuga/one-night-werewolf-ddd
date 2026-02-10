@@ -31,6 +31,13 @@ class GameLogic:
         self.test_role_distribution = None  # Para asignar roles específicos en pruebas
         self.robber_action_taken = False
         self.robber_last_target_by_player: Dict[str, Dict[str, Any]] = {}
+        self.troublemaker_action_taken = False
+        self.troublemaker_last_swap_by_player: Dict[str, Dict[str, Any]] = {}
+        self.votes: Dict[str, Optional[str]] = {}
+        self.final_roles: Dict[str, str] = {}
+        self.eliminated_ids: List[str] = []
+        self.winners: Dict[str, Any] = {}
+        self.night_finished = False
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
         """Añade un jugador a la sala"""
@@ -161,6 +168,13 @@ class GameLogic:
         self.phase = GamePhase.NIGHT_PHASE
         self.robber_action_taken = False
         self.robber_last_target_by_player = {}
+        self.troublemaker_action_taken = False
+        self.troublemaker_last_swap_by_player = {}
+        self.votes = {}
+        self.final_roles = {}
+        self.eliminated_ids = []
+        self.winners = {}
+        self.night_finished = False
         self.add_log("🌙 El juego ha comenzado. Es de noche...")
         
         return True
@@ -222,6 +236,8 @@ class GameLogic:
 
         if current_role == 'robber':
             result = self._execute_robber_action(player_id, action_data)
+        elif current_role == 'troublemaker':
+            result = self._execute_troublemaker_action(player_id, action_data)
         else:
             game_state = self._get_game_state()
             result = player.role.execute_action(player_id, action_data, game_state)
@@ -283,6 +299,64 @@ class GameLogic:
         target_player_id = random.choice(possible_targets)
         return self._execute_robber_action(robber_id, {'target_player_id': target_player_id})
 
+    def _execute_troublemaker_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Ejecuta la acción de la alborotadora: intercambia roles de dos jugadores (no centro)."""
+        if self.troublemaker_action_taken:
+            return {'success': False, 'message': 'Acción de alborotadora ya ejecutada'}
+
+        target_a = action_data.get('target_player_id_a')
+        target_b = action_data.get('target_player_id_b')
+
+        if not target_a or not target_b:
+            return {'success': False, 'message': 'Debes elegir dos jugadores'}
+        if target_a == target_b:
+            return {'success': False, 'message': 'Debes elegir dos jugadores distintos'}
+        if target_a not in self.players or target_b not in self.players:
+            return {'success': False, 'message': 'Jugador no válido'}
+
+        player_a = self.players[target_a]
+        player_b = self.players[target_b]
+
+        # Intercambiar roles actuales (sin revelar)
+        player_a.role, player_b.role = player_b.role, player_a.role
+        self.troublemaker_action_taken = True
+        self.troublemaker_last_swap_by_player[player_id] = {
+            'a': {'id': target_a, 'name': player_a.name},
+            'b': {'id': target_b, 'name': player_b.name}
+        }
+
+        target_names = self.troublemaker_last_swap_by_player[player_id]
+        return {
+            'success': True,
+            'message': f"Has cambiado a {target_names['a']['name']} con {target_names['b']['name']}.",
+            'troublemaker_player_id': player_id,
+            'swapped_players': self.troublemaker_last_swap_by_player[player_id]
+        }
+
+    def execute_troublemaker_auto_action(self) -> Dict[str, Any]:
+        """Ejecuta acción automática de la alborotadora al expirar el turno."""
+        if self.troublemaker_action_taken:
+            return {'success': False, 'message': 'Acción de alborotadora ya ejecutada'}
+
+        troublemaker_id = None
+        for pid, player in self.players.items():
+            if player.get_role_name() == 'troublemaker':
+                troublemaker_id = pid
+                break
+
+        if not troublemaker_id:
+            return {'success': False, 'message': 'No hay alborotadora activa'}
+
+        player_ids = list(self.players.keys())
+        if len(player_ids) < 2:
+            return {'success': False, 'message': 'No hay suficientes jugadores para intercambiar'}
+
+        target_a, target_b = random.sample(player_ids, 2)
+        return self._execute_troublemaker_action(troublemaker_id, {
+            'target_player_id_a': target_a,
+            'target_player_id_b': target_b
+        })
+
     def advance_night_turn(self) -> bool:
         """Avanza al siguiente turno nocturno."""
         if self.phase != GamePhase.NIGHT_PHASE:
@@ -291,8 +365,7 @@ class GameLogic:
         self.current_turn_index += 1
         
         if self.current_turn_index >= len(self.night_turns):
-            self.phase = GamePhase.DAY_PHASE
-            self.add_log("☀️ Amanecer. Fase de discusión iniciada")
+            self.night_finished = True
             return True
         
         current_role = self.get_current_turn_role()
@@ -300,7 +373,92 @@ class GameLogic:
             self.add_log(f"--- Fase: {current_role} ---")
             if current_role == 'robber':
                 self.robber_action_taken = False
+            if current_role == 'troublemaker':
+                self.troublemaker_action_taken = False
         return True
+
+    def start_voting_phase(self) -> bool:
+        """Inicia la fase de votación (solo desde día)."""
+        if self.phase != GamePhase.DAY_PHASE:
+            return False
+        self.phase = GamePhase.VOTING
+        self.votes = {pid: None for pid in self.players.keys()}
+        self.add_log("🗳️ Votación iniciada")
+        return True
+
+    def submit_vote(self, voter_id: str, target_id: str) -> Dict[str, Any]:
+        """Registra el voto de un jugador."""
+        if self.phase != GamePhase.VOTING:
+            return {'success': False, 'message': 'No es la fase de votación'}
+        if voter_id not in self.players:
+            return {'success': False, 'message': 'Jugador no encontrado'}
+        if target_id not in self.players:
+            return {'success': False, 'message': 'Objetivo inválido'}
+
+        self.votes[voter_id] = target_id
+        all_voted = all(v is not None for v in self.votes.values())
+
+        return {
+            'success': True,
+            'all_voted': all_voted
+        }
+
+    def can_finalize(self) -> bool:
+        """Indica si todos han votado y se puede revelar."""
+        if self.phase != GamePhase.VOTING:
+            return False
+        return bool(self.votes) and all(v is not None for v in self.votes.values())
+
+    def _finalize_game(self):
+        """Calcula resultados finales y define ganadores."""
+        # Snapshot de roles finales
+        self.final_roles = {pid: p.get_role_name() for pid, p in self.players.items()}
+
+        # Conteo de votos
+        vote_counts: Dict[str, int] = {}
+        for target_id in self.votes.values():
+            if target_id is None:
+                continue
+            vote_counts[target_id] = vote_counts.get(target_id, 0) + 1
+
+        self.eliminated_ids = []
+        if vote_counts:
+            max_votes = max(vote_counts.values())
+            self.eliminated_ids = [pid for pid, count in vote_counts.items() if count == max_votes]
+
+        # Ganadores (borrador simple)
+        werewolves_in_final = [pid for pid, role in self.final_roles.items() if role == 'werewolf']
+        eliminated_werewolves = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == 'werewolf']
+
+        if eliminated_werewolves:
+            team = 'villagers'
+            message = 'Los aldeanos ganan (eliminaste a un lobo).'
+        else:
+            if len(werewolves_in_final) == 0:
+                team = 'villagers'
+                message = 'Los aldeanos ganan (no había lobos).'
+            else:
+                team = 'werewolves'
+                message = 'Los lobos ganan (ningún lobo eliminado).'
+
+        self.winners = {
+            'team': team,
+            'message': message,
+            'eliminated_ids': self.eliminated_ids
+        }
+
+        self.phase = GamePhase.GAME_END
+        self.add_log("🏁 Fin de partida")
+
+    def get_reveal_data(self) -> Dict[str, Any]:
+        """Retorna los datos de revelación final."""
+        return {
+            'final_roles': {pid: {'role': self.final_roles.get(pid), 'name': p.name} for pid, p in self.players.items()},
+            'original_roles': {pid: {'role': p.original_role, 'name': p.name} for pid, p in self.players.items()},
+            'eliminated_ids': self.eliminated_ids,
+            'votes': self.votes,
+            'winners': self.winners
+        }
 
     def _get_game_state(self) -> Dict[str, Any]:
         """Retorna el estado actual del juego para las reglas de dominio."""
@@ -330,6 +488,7 @@ class GameLogic:
             'player_count': len(self.players),
             'selected_roles_count': len(self.selected_roles),
             'current_turn_role': self.get_current_turn_role(),
+            'votes': self.votes if self.phase == GamePhase.VOTING else {},
             'logs': self.game_logs[-10:]
         }
 
@@ -346,12 +505,12 @@ class GameLogic:
         is_your_turn = player.get_role_name() == current_turn_role
         
         your_role = player.get_role_name() if player.role else None
-        if self.phase == GamePhase.NIGHT_PHASE and player.original_role:
-            if player.original_role != 'robber':
-                your_role = player.original_role
-            else:
+        if self.phase in (GamePhase.NIGHT_PHASE, GamePhase.DAY_PHASE, GamePhase.VOTING) and player.original_role:
+            if self.phase == GamePhase.NIGHT_PHASE and player.original_role == 'robber':
                 # El ladrón ve su rol actual durante la noche
                 your_role = player.get_role_name()
+            else:
+                your_role = player.original_role
 
         private_data = {
             'your_role': your_role,
@@ -363,6 +522,10 @@ class GameLogic:
             robber_last_target = self.robber_last_target_by_player.get(player_id)
             if robber_last_target:
                 private_data['robber_last_target'] = robber_last_target
+        if self.phase == GamePhase.NIGHT_PHASE and player.original_role == 'troublemaker':
+            troublemaker_last_swap = self.troublemaker_last_swap_by_player.get(player_id)
+            if troublemaker_last_swap:
+                private_data['troublemaker_last_swap'] = troublemaker_last_swap
         
         if is_your_turn:
             night_action_data = self.get_night_action_data_for_player(player_id)
