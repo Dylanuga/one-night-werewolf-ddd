@@ -72,6 +72,11 @@ export const useGameStore = create((set, get) => ({
   actionResult: null,
   revealData: null,
   myVote: null,
+  nightNotes: {
+    werewolf: null,
+    mason: null,
+    seer: null
+  },
   
   // Errores
   error: null,
@@ -344,6 +349,26 @@ export const useGameStore = create((set, get) => ({
   },
 
   setMyVote: (vote) => set({ myVote: vote }),
+
+  setNightNote: (role, note) => {
+    if (!role) return;
+    const current = get().nightNotes?.[role] || null;
+    if (current === note) return;
+    set(state => ({
+      nightNotes: {
+        ...state.nightNotes,
+        [role]: note
+      }
+    }));
+  },
+
+  clearNightNotes: () => set({
+    nightNotes: {
+      werewolf: null,
+      mason: null,
+      seer: null
+    }
+  }),
   
   setError: (error) => {
     const current = get().error;
@@ -749,6 +774,11 @@ export const useGameStore = create((set, get) => ({
       actionResult: null,
       revealData: null,
       myVote: null,
+      nightNotes: {
+        werewolf: null,
+        mason: null,
+        seer: null
+      },
       error: null,
       logs: [],
       playerName: '',

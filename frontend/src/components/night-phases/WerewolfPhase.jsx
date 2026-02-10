@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction } = useGameStore();
+  const { executeNightAction, setNightNote } = useGameStore();
   const [hasActed, setHasActed] = useState(false);
+  const [centerInfo, setCenterInfo] = useState(null);
 
   // ✅ OPTIMIZADO: Efecto simple para resetear estado
   useEffect(() => {
@@ -19,6 +20,33 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
       setHasActed(true);
     }
   }, [actionResult, hasActed]);
+
+  useEffect(() => {
+    if (nightActionData?.type === 'show_other_werewolf' && nightActionData?.other_werewolf_name) {
+      setNightNote('werewolf', `Tu compañero lobo es ${nightActionData.other_werewolf_name}`);
+    }
+  }, [nightActionData, setNightNote]);
+
+  useEffect(() => {
+    if (actionResult?.center_role && actionResult?.center_position !== undefined) {
+      const posNames = ['izquierda', 'centro', 'derecha'];
+      const roleNames = {
+        werewolf: 'lobo',
+        villager: 'aldeano',
+        seer: 'pitonisa',
+        robber: 'ladrón',
+        troublemaker: 'alborotadora',
+        tanner: 'curtidor',
+        drunk: 'borracho',
+        mason: 'masón',
+        hunter: 'cazador',
+        insomniac: 'insomne'
+      };
+      const info = `Carta ${posNames[actionResult.center_position] || 'izquierda'}: ${roleNames[actionResult.center_role] || actionResult.center_role}`;
+      setCenterInfo(info);
+      setNightNote('werewolf', `Has visto ${info}`);
+    }
+  }, [actionResult, setNightNote]);
 
   // ✅ OPTIMIZADO: Handler estable
   const handleCenterCardClick = useCallback((position) => {
@@ -72,9 +100,7 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
           </p>
           <p className="text-red-300 text-sm mt-2">Es tu compañero lobo</p>
         </div>
-        <p className="text-red-200 text-sm mt-4">
-          ¡Ambos conocéis vuestra identidad!
-        </p>
+        <p className="text-red-200 text-sm mt-4">¡Ambos conocéis vuestra identidad!</p>
       </div>
     );
   }
@@ -110,32 +136,37 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
         
         {hasActed && actionResult && (
           <div className="bg-green-900/30 border border-green-500 rounded-lg p-4 mt-4">
-            <p className="text-green-400 text-center font-bold">
-              ✓ {actionResult.message || 'Has elegido una carta'}
-            </p>
-            {actionResult.center_role && (
-              <p className="text-white text-center mt-2">
-                🃏 Has visto ({['izquierda', 'centro', 'derecha'][actionResult.center_position] || 'izquierda'}):{' '}
-                <span className="font-bold text-yellow-400">
-                  {({
+          <p className="text-green-400 text-center font-bold">
+            ✓ {actionResult.message || 'Has elegido una carta'}
+          </p>
+          {actionResult.center_role && (
+            <p className="text-white text-center mt-2">
+              🃏 Has visto ({['izquierda', 'centro', 'derecha'][actionResult.center_position] || 'izquierda'}):{' '}
+              <span className="font-bold text-yellow-400">
+                {({
                     werewolf: 'lobo',
                     villager: 'aldeano',
                     seer: 'pitonisa',
-                    robber: 'ladron',
-                    troublemaker: 'alborotador',
+                    robber: 'ladrón',
+                    troublemaker: 'alborotadora',
                     tanner: 'curtidor',
                     drunk: 'borracho',
-                    mason: 'mason',
+                    mason: 'masón',
                     hunter: 'cazador',
                     insomniac: 'insomne'
                   }[actionResult.center_role] || actionResult.center_role)}
-                </span>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    );
+              </span>
+            </p>
+          )}
+          {centerInfo && (
+            <p className="text-yellow-400 text-center mt-2 font-semibold">
+              Recuerda: {centerInfo}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
   }
 
   return (

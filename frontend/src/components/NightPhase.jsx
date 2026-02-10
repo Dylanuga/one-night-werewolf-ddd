@@ -22,7 +22,9 @@ export const NightPhase = React.memo(() => {
     getCurrentTurnDisplay,
     isMyTurn,
     getNightAction,
-    getEffectiveActionResult
+    getEffectiveActionResult,
+    nightNotes,
+    clearNightNotes
   } = useGameStore();
 
   // ✅ NUEVA ARQUITECTURA: Datos desde privateState con turn_timestamp
@@ -63,6 +65,12 @@ export const NightPhase = React.memo(() => {
       timestamp: Date.now()
     });
   }, [currentTurnRole, isCurrentUserTurn, privateState?.turn_timestamp]);
+
+  useEffect(() => {
+    if (privateState?.phase !== 'night_phase') {
+      clearNightNotes();
+    }
+  }, [privateState?.phase, clearNightNotes]);
 
   // ✅ OPTIMIZACIÓN: Función de render estable sin useMemo/useCallback
   const renderCurrentPhaseInfo = () => {
@@ -206,6 +214,15 @@ export const NightPhase = React.memo(() => {
             )}
             <p>🎭 Tu rol: {myRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
+            {nightNotes?.werewolf && myRole === 'werewolf' && (
+              <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
+            )}
+            {nightNotes?.mason && myRole === 'mason' && (
+              <p className="text-yellow-400 font-semibold">🔨 {nightNotes.mason}</p>
+            )}
+            {nightNotes?.seer && myRole === 'seer' && (
+              <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
+            )}
             {/* Mostrar info del turno actual para todos */}
             {currentTurnRole && (
               <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-700">

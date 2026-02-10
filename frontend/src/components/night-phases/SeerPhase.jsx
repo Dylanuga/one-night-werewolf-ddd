@@ -3,11 +3,25 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 
 export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
-  const { executeNightAction } = useGameStore();
+  const { executeNightAction, setNightNote } = useGameStore();
   const [mode, setMode] = useState('player');
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [selectedCenters, setSelectedCenters] = useState([]);
   const [hasActed, setHasActed] = useState(false);
+
+  const roleNameMap = useMemo(() => ({
+    werewolf: 'lobo',
+    villager: 'aldeano',
+    seer: 'pitonisa',
+    robber: 'ladrón',
+    troublemaker: 'alborotadora',
+    tanner: 'curtidor',
+    drunk: 'borracho',
+    mason: 'masón',
+    hunter: 'cazador',
+    insomniac: 'insomne'
+  }), []);
+  const posNames = ['izquierda', 'centro', 'derecha'];
 
   useEffect(() => {
     if (!isMyTurn) {
@@ -25,19 +39,21 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   }, [actionResult]);
 
   const players = useMemo(() => nightActionData?.players || [], [nightActionData]);
-  const roleNameMap = useMemo(() => ({
-    werewolf: 'lobo',
-    villager: 'aldeano',
-    seer: 'pitonisa',
-    robber: 'ladron',
-    troublemaker: 'alborotador',
-    tanner: 'curtidor',
-    drunk: 'borracho',
-    mason: 'mason',
-    hunter: 'cazador',
-    insomniac: 'insomne'
-  }), []);
-  const posNames = ['izquierda', 'centro', 'derecha'];
+  useEffect(() => {
+    if (!actionResult?.success) return;
+    if (actionResult.seen_player) {
+      const roleName = roleNameMap[actionResult.seen_player.role] || actionResult.seen_player.role;
+      setNightNote('seer', `${actionResult.seen_player.name} es ${roleName}`);
+    }
+    if (actionResult.seen_center) {
+      const entries = actionResult.seen_center.map(card => {
+        const posLabel = posNames[card.position] || posNames[0];
+        const roleLabel = roleNameMap[card.role] || card.role;
+        return `${posLabel}: ${roleLabel}`;
+      });
+      setNightNote('seer', `Centro: ${entries.join(', ')}`);
+    }
+  }, [actionResult, roleNameMap, posNames, setNightNote]);
 
   const toggleCenter = useCallback((pos) => {
     if (hasActed) return;
