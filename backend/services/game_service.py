@@ -25,26 +25,18 @@ class GameService:
     def create_room(self, room_code: str, host_id: str, host_name: str, socket_id: str) -> bool:
         """Crea una nueva sala de juego"""
         try:
-            print(f"🏠 CREATE_ROOM INICIADO: {room_code}, host: {host_name} ({host_id})")
-            
             if self.room_repository.room_exists(room_code):
-                print(f"❌ CREATE_ROOM FALLO: Sala {room_code} ya existe")
                 return False
             
             game = GameLogic(room_code)
             success = game.add_player(host_id, host_name, socket_id, is_host=True)
             
             if success:
-                print(f"✅ Jugador host {host_name} anadido exitosamente")
                 self.room_repository.save_game(room_code, game)
-                print(f"✅ Sala {room_code} guardada en repository")
-                
-                print(f"📤 Enviando game_update para sala {room_code}")
                 self._emit_game_update(room_code)
-                print(f"✅ CREATE_ROOM COMPLETADO: {room_code}")
+                print(f"[ROOM] creada {room_code} host={host_name} ({host_id})")
                 return True
             else:
-                print(f"❌ CREATE_ROOM FALLO: No se pudo anadir jugador host")
                 return False
             
         except Exception as e:
@@ -80,6 +72,7 @@ class GameService:
             if success:
                 self.room_repository.save_game(room_code, game)
                 self._emit_game_update(room_code)
+                print(f"[ROOM] join {room_code} player={player_name} ({player_id})")
                 return True
             
             return False
@@ -172,31 +165,19 @@ class GameService:
             required_roles = player_count + 3
             current_roles = game.selected_roles or []
             
-            print(f"🔧 VALIDACIÓN ESTRICTA PARA INICIAR JUEGO:")
-            print(f"   Jugadores: {player_count}")
-            print(f"   Roles requeridos: {required_roles}")
-            print(f"   Roles actuales: {len(current_roles)} -> {current_roles}")
-            
             # Validación 1: Número correcto de roles
             if len(current_roles) != required_roles:
-                print(f"❌ ERROR: Se necesitan {required_roles} roles, tienes {len(current_roles)}")
                 return False
             
             # Validación 2: Al menos 1 lobo
             werewolf_count = current_roles.count('werewolf')
             if werewolf_count < 1:
-                print(f"❌ ERROR: Se necesita al menos 1 lobo, tienes {werewolf_count}")
                 return False
             
             # Validación 3: No más de la mitad de lobos
             max_werewolves = max(1, player_count // 2)
             if werewolf_count > max_werewolves:
-                print(f"❌ ERROR: Demasiados lobos ({werewolf_count}), máximo permitido: {max_werewolves}")
                 return False
-            
-            print(f"✅ VALIDACIÓN EXITOSA - INICIANDO JUEGO:")
-            print(f"   Lobos: {werewolf_count} (válido: 1-{max_werewolves})")
-            print(f"   Total: {len(current_roles)} roles")
             
             # Ahora sí, iniciar el juego
             success = game.start_game()
@@ -204,7 +185,7 @@ class GameService:
                 self.room_repository.save_game(room_code, game)
                 self._emit_game_update(room_code)
                 
-                print(f"🔧 INICIANDO TURNOS NOCTURNOS PARA SALA: {room_code}")
+                print(f"[GAME] iniciado sala {room_code} por {player_id}")
                 self._start_first_night_turn(room_code)
                 
                 return True
@@ -277,42 +258,33 @@ class GameService:
         try:
             self._cancel_turn_timer(room_code)
             self._emit_game_update(room_code)
+            print(f"[PHASE] día en sala {room_code}")
         except Exception as e:
             print(f"Error en _advance_to_day_phase: {e}")
 
     def _emit_game_update(self, room_code: str):
         """Emite actualización del estado del juego a todos los jugadores"""
         try:
-            print(f"📤 _emit_game_update INICIADO para sala {room_code}")
-            
             game = self.room_repository.get_game(room_code)
             if not game:
-                print(f"❌ _emit_game_update: No se encontró juego para {room_code}")
                 return
             
             public_state = game.get_public_state()
-            print(f"📊 Enviando game_update a toda la sala {room_code}")
-            print(f"   Estado público: {len(public_state.get('players', []))} jugadores, fase: {public_state.get('phase')}")
             self.emit_callback('game_update', public_state, room=room_code)
             
             # 🔧 FIX: Verificar si hay un turno activo para reenviar datos
             current_turn_role = game.get_current_turn_role()
             # No necesitamos current_turn_player, solo current_turn_role
             
-            print(f"👥 Enviando private_update a {len(game.players)} jugadores individuales")
             for player_id, player in game.players.items():
                 if player.is_connected and player.socket_id:
                     try:
-                        print(f"   📤 Enviando private_update a {player.name} ({player_id})")
                         private_state = game.get_private_state_for_player(player_id)
-                        print(f"      Estado privado: fase={private_state.get('phase')}, rol={private_state.get('your_role', 'sin_rol')}")
                         
                         # 🔧 FIX: Si estamos en turno de werewolf y este jugador es werewolf
                         if (current_turn_role == 'werewolf' and 
                             player.get_role_name() == 'werewolf' and
                             game.phase.value == 'night_phase'):
-                            
-                            print(f"🔧 RECONEXIÓN DURANTE TURNO WEREWOLF: {player_id}")
                             
                             # Reenviar datos de night_action
                             night_action_data = game.get_night_action_data_for_player(player_id)
@@ -320,9 +292,6 @@ class GameService:
                                 private_state['night_action'] = night_action_data
                                 private_state['current_turn_role'] = 'werewolf'
                                 private_state['is_your_turn'] = True
-                                
-                                print(f"🔧 REENVIANDO NIGHT_ACTION A {player_id}: {night_action_data}")
-                                
                                 # Enviar tanto private_update como night_action separado
                                 self.emit_callback('private_update', private_state, room=player.socket_id)
                                 self.emit_callback('night_action', night_action_data, room=player.socket_id)
@@ -333,17 +302,12 @@ class GameService:
                             player.get_role_name() == 'mason' and
                             game.phase.value == 'night_phase'):
                             
-                            print(f"🔧 RECONEXIÓN DURANTE TURNO MASON: {player_id}")
-                            
                             # Reenviar datos de night_action
                             night_action_data = game.get_night_action_data_for_player(player_id)
                             if night_action_data:
                                 private_state['night_action'] = night_action_data
                                 private_state['current_turn_role'] = 'mason'
                                 private_state['is_your_turn'] = True
-                                
-                                print(f"🔧 REENVIANDO NIGHT_ACTION A MASÓN {player_id}: {night_action_data}")
-                                
                                 # Enviar tanto private_update como night_action separado
                                 self.emit_callback('private_update', private_state, room=player.socket_id)
                                 self.emit_callback('night_action', night_action_data, room=player.socket_id)
@@ -354,17 +318,12 @@ class GameService:
                             player.get_role_name() == 'seer' and
                             game.phase.value == 'night_phase'):
                             
-                            print(f"🔧 RECONEXIÓN DURANTE TURNO SEER: {player_id}")
-                            
                             # Reenviar datos de night_action
                             night_action_data = game.get_night_action_data_for_player(player_id)
                             if night_action_data:
                                 private_state['night_action'] = night_action_data
                                 private_state['current_turn_role'] = 'seer'
                                 private_state['is_your_turn'] = True
-                                
-                                print(f"🔧 REENVIANDO NIGHT_ACTION A SEER {player_id}: {night_action_data}")
-                                
                                 # Enviar tanto private_update como night_action separado
                                 self.emit_callback('private_update', private_state, room=player.socket_id)
                                 self.emit_callback('night_action', night_action_data, room=player.socket_id)
@@ -372,15 +331,12 @@ class GameService:
                         
                         # Emisión normal
                         self.emit_callback('private_update', private_state, room=player.socket_id)
-                        print(f"      ✅ private_update enviado a {player.name}")
                         
                     except Exception as player_error:
                         print(f"❌ Error emitiendo a jugador {player_id}: {player_error}")
                         import traceback
                         traceback.print_exc()
                         continue
-                        
-            print(f"✅ _emit_game_update COMPLETADO para sala {room_code}")
         except Exception as e:
             print(f"❌ Error en _emit_game_update: {e}")
             import traceback
@@ -391,7 +347,6 @@ class GameService:
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
-                print(f"❌ No se encontró juego para emitir turn_start: {room_code}")
                 return
             
             # Crear timestamp único para este turno
@@ -404,8 +359,6 @@ class GameService:
                 'duration': self._get_turn_duration(room_code),
                 'timestamp': turn_timestamp
             }
-            
-            print(f"🔧 EMITIENDO TURN_START UNIFICADO: {turn_data}")
             
             # 1. Emitir turn_start a toda la sala (para UI)
             self.emit_callback('turn_start', turn_data, room=room_code)
@@ -432,16 +385,12 @@ class GameService:
                             if night_action_data:
                                 private_state['night_action'] = night_action_data
                         
-                        print(f"� EMITIENDO PRIVATE_UPDATE UNIFICADO a {player_id} ({player_role}): is_your_turn={private_state['is_your_turn']}")
-                        
                         # Emitir private_update con datos completos y timestamp
                         self.emit_callback('private_update', private_state, room=player.socket_id)
                         
                     except Exception as player_error:
                         print(f"⚠️ Error emitiendo private_update unificado a {player_id}: {str(player_error)}")
                         continue
-            
-            print(f"✅ TURN_START UNIFICADO COMPLETADO para rol: {role}")
             
         except Exception as e:
             print(f"Error en _emit_turn_start: {e}")
@@ -572,13 +521,11 @@ class GameService:
             # Verificar si el juego sigue activo y en fase nocturna
             game = self.room_repository.get_game(room_code)
             if not game or game.phase != GamePhase.NIGHT_PHASE:
-                print(f"⚠️ No se inicia timer: Sala {room_code} no válida o no en night_phase")
                 return
             
             # Verificar si hay un rol actual válido
             current_role = game.get_current_turn_role()
             if not current_role:
-                print(f"⚠️ No se inicia timer: No hay rol actual en sala {room_code}")
                 return
                 
             # Invalidar cualquier timer anterior y generar un token nuevo
@@ -602,13 +549,11 @@ class GameService:
             # Iniciar tarea en background
             self.start_background_task(timer_task, token)
             
-            print(f"🔧 TIMER INICIADO: {self._get_turn_duration(room_code)}s para sala {room_code}, rol {current_role}")
-            
             # Registrar un log con el momento exacto del inicio del timer
             start_time = time.strftime("%H:%M:%S", time.localtime())
             expected_end = time.strftime("%H:%M:%S", 
                                          time.localtime(time.time() + self._get_turn_duration(room_code)))
-            print(f"⏱️ Timer iniciado a las {start_time}, terminará a las {expected_end}")
+            print(f"[TIMER] inicio sala {room_code} rol={current_role} dur={self._get_turn_duration(room_code)}s ({start_time} -> {expected_end})")
             
         except Exception as e:
             print(f"🔴 ERROR iniciando timer para {room_code}: {str(e)}")
@@ -631,20 +576,24 @@ class GameService:
     def _auto_advance_turn(self, room_code: str):
         """🔧 FIX MEJORADO: Avanza automáticamente al siguiente turno cuando expira el timer"""
         try:
-            print(f"🔧 AUTO-AVANZANDO TURNO para sala {room_code}")
-            
             game = self.room_repository.get_game(room_code)
             if not game:
-                print(f"❌ Sala {room_code} no encontrada")
                 return
                 
             if game.phase != GamePhase.NIGHT_PHASE:
-                print(f"⚠️ Sala {room_code} no está en fase nocturna: {game.phase}")
                 return
             
             # Registrar el turno actual antes de avanzar (para debugging)
             current_role_before = game.get_current_turn_role()
-            print(f"🔄 Avanzando desde rol: {current_role_before}, turno {game.current_turn_index}/{len(game.night_turns)}")
+            print(f"[TIMER] fin sala {room_code} rol={current_role_before}")
+
+            # ✅ Auto-acción del ladrón si no hizo click antes de expirar el turno
+            if current_role_before == 'robber':
+                auto_result = game.execute_robber_auto_action()
+                if auto_result.get('success'):
+                    robber_id = auto_result.get('robber_player_id')
+                    if robber_id:
+                        self._emit_to_player(room_code, robber_id, 'action_result', auto_result)
             
             # Avanzar al siguiente turno
             advanced = game.advance_night_turn()
@@ -654,32 +603,23 @@ class GameService:
             self.room_repository.save_game(room_code, game)
             
             if not advanced:
-                print(f"⚠️ No se pudo avanzar el turno en sala {room_code}")
                 return
-                
-            print(f"✅ Turno avanzado correctamente: {game.current_turn_index}/{len(game.night_turns)}")
             
             # Verificar si la noche terminó
             if game.phase == GamePhase.DAY_PHASE:
-                print(f"🌞 NOCHE TERMINADA - AVANZANDO A FASE DE DÍA")
-                
                 # ✅ ARQUITECTURA UNIFICADA: Solo usar _emit_game_update que ya incluye private_update para todos
-                print(f"📤 Enviando actualizaciones unificadas tras finalizar noche")
                 self._emit_game_update(room_code)
                     
                 # Pequeña pausa para asegurar que los clientes reciban las actualizaciones
                 time.sleep(0.1)
                 
                 # Avanzar a la fase de día
-                print(f"🌞 Avanzando a fase de día")
                 self._advance_to_day_phase(room_code)
             else:
                 # Continuar con el siguiente turno
                 current_role = game.get_current_turn_role()
-                print(f"� CONTINUANDO CON SIGUIENTE TURNO: {current_role}")
                 
                 if not current_role:
-                    print(f"⚠️ ERROR: Rol actual es None después de avanzar turno")
                     return
                 
                 # ✅ ARQUITECTURA UNIFICADA: _emit_turn_start ahora maneja TODO

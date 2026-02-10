@@ -191,34 +191,11 @@ room_repository = RoomRepository()
 def emit_callback(event: str, data: Any, room: str = None):
     """Callback para que el GameService pueda emitir eventos"""
     try:
-        # 🔍 DEBUG: Log detallado de emisiones
-        if event == 'turn_start':
-            print(f"📡 EMIT_CALLBACK - ENVIANDO {event} a room {room}: {data}")
-            
-            # 🔍 DEBUG: Verificar qué sockets están en la sala
-            if room:
-                try:
-                    room_sockets = list(socketio.server.manager.get_participants('/', room))
-                    print(f"📡 SOCKETS EN SALA {room}: {room_sockets}")
-                    print(f"📡 CANTIDAD DE SOCKETS EN SALA {room}: {len(room_sockets)}")
-                except Exception as e:
-                    print(f"📡 ERROR AL OBTENER SOCKETS DE SALA {room}: {e}")
-                    # Fallback: usar métodos alternativos
-                    try:
-                        room_data = socketio.server.manager.rooms.get('/', {}).get(room, set())
-                        print(f"📡 SOCKETS EN SALA {room} (fallback): {list(room_data)}")
-                    except Exception as e2:
-                        print(f"📡 ERROR EN FALLBACK: {e2}")
-        
         if room:
             # 🔧 FIX: Usar to= en lugar de room= para mayor compatibilidad
-            result = socketio.emit(event, data, to=room)
-            if event == 'turn_start':
-                print(f"📡 EMIT_CALLBACK - RESULTADO socketio.emit: {result}")
+            socketio.emit(event, data, to=room)
         else:
-            result = socketio.emit(event, data)
-            if event == 'turn_start':
-                print(f"📡 EMIT_CALLBACK - RESULTADO socketio.emit (broadcast): {result}")
+            socketio.emit(event, data)
                 
     except Exception as e:
         print(f"❌ ERROR en emit_callback - evento: {event}, room: {room}, error: {e}")
@@ -298,8 +275,6 @@ def on_connect():
     """Un cliente se conecta"""
     try:
         print(f"Cliente conectado: {request.sid}")
-        print(f"🔍 connected_players actual: {connected_players}")
-        print(f"🔍 Total conexiones: {len(connected_players)}")
         emit('connected', {'socket_id': request.sid})
     except Exception as e:
         print(f"Error en connect: {e}")
@@ -314,7 +289,6 @@ def on_disconnect():
         # Esto permite que el jugador se reconecte sin perder su lugar
         if request.sid in connected_players:
             player_id = connected_players[request.sid]
-            print(f"🔧 DESCONEXIÓN: {request.sid} -> {player_id} (manteniendo en juego)")
             
             # Marcar como desconectado pero no eliminar
             room_code = game_service.get_player_room(player_id)
@@ -323,13 +297,9 @@ def on_disconnect():
                 if game and player_id in game.players:
                     game.players[player_id].disconnect()
                     room_repository.save_game(room_code, game)
-                    print(f"🔧 Jugador {player_id} marcado como desconectado (TEMPORAL)")
             
             # NO eliminar el mapeo inmediatamente - esperar un poco por si se reconecta
             # del connected_players[request.sid]  # ❌ NO hacer esto aún
-            print(f"🔧 Mapeo mantenido temporalmente para posible reconexión")
-        else:
-            print(f"🔧 Socket desconectado no estaba en connected_players: {request.sid}")
             
     except Exception as e:
         print(f"Error en disconnect: {e}")
@@ -370,11 +340,6 @@ def on_join_room(data):
         room_code = data.get('room_code', '').strip().upper()
         player_name = data.get('name', '').strip()
         
-        print(f"🔧 JOIN_ROOM - NUEVO SISTEMA:")
-        print(f"   request.sid: {request.sid}")
-        print(f"   room_code: {room_code}")
-        print(f"   player_name: {player_name}")
-        
         if not room_code or not player_name:
             emit('error', {'message': 'Código de sala y nombre requeridos'})
             return
@@ -396,7 +361,6 @@ def on_join_room(data):
             if game and player_id in game.players:
                 game.players[player_id].reconnect(request.sid)
                 room_repository.save_game(room_code, game)
-                print(f"🔧 RECONEXIÓN EXITOSA: {player_id} mantiene su identidad y rol")
                 
                 # Emitir eventos de reconexión
                 join_room(room_code)
@@ -405,7 +369,6 @@ def on_join_room(data):
                 # 🎯 CRÍTICO: Enviar estado privado al jugador reconectado
                 private_state = game_service.get_private_state(room_code, player_id)
                 if private_state:
-                    print(f"🔧 ENVIANDO ESTADO PRIVADO A JUGADOR RECONECTADO: {player_id}")
                     emit('private_update', private_state)
                 
                 # Forzar actualización del estado público
@@ -422,7 +385,6 @@ def on_join_room(data):
                 connected_players[request.sid] = player_id
                 join_room(room_code)
                 emit('room_joined', {'room_code': room_code})
-                print(f"🔧 NUEVO JUGADOR: {player_id}")
             else:
                 emit('error', {'message': 'No se pudo unir a la sala'})
         
@@ -533,30 +495,18 @@ def on_set_roles(data):
 def on_start_game(data=None):
     """El host inicia la partida"""
     try:
-        print(f"🔧 START_GAME - SISTEMA FIJO:")
-        print(f"   request.sid: {request.sid}")
-        print(f"   connected_players actual: {connected_players}")
-        
         if request.sid not in connected_players:
-            print(f"❌ ERROR: Socket ID no encontrado en connected_players")
-            print(f"🔍 DEBUGGING - Intentando recuperar player_id por socket...")
-            
             # Usar función auxiliar para recuperar
             recovered_player_id, recovered_room_code = recover_player_by_socket_or_host(request.sid)
             
             if recovered_player_id:
                 connected_players[request.sid] = recovered_player_id
-                print(f"✅ MAPEO RESTAURADO: {request.sid} -> {recovered_player_id}")
             else:
-                print(f"❌ No se pudo recuperar ningún jugador para socket {request.sid}")
                 emit('error', {'message': 'No estás en ninguna sala'})
                 return
         
         player_id = connected_players[request.sid]
         room_code = game_service.get_player_room(player_id)
-        
-        print(f"   player_id: {player_id}")
-        print(f"   room_code: {room_code}")
         
         if not room_code:
             emit('error', {'message': 'No se encontró tu sala'})
@@ -569,7 +519,6 @@ def on_start_game(data=None):
             return
         
         is_host = game.players[player_id].is_host  
-        print(f"   is_host: {is_host}")
         
         if not is_host:
             emit('error', {'message': 'Solo el host puede iniciar el juego'})
@@ -583,10 +532,7 @@ def on_start_game(data=None):
                 'message': 'El juego ha comenzado',
                 'timestamp': time.time()
             }
-            print(f"✅ EMITIENDO game_started A TODA LA SALA {room_code}")
             socketio.emit('game_started', game_started_data, room=room_code)
-            
-            print(f"✅ JUEGO INICIADO POR HOST: {player_id}")
         else:
             emit('error', {'message': 'No se pudo iniciar el juego'})
         

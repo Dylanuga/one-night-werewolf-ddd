@@ -29,6 +29,8 @@ class GameLogic:
         self.max_players = 8  # 🔧 Aumentado para más flexibilidad
         self.test_mode = False
         self.test_role_distribution = None  # Para asignar roles específicos en pruebas
+        self.robber_action_taken = False
+        self.robber_last_target_by_player: Dict[str, Dict[str, Any]] = {}
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
         """Añade un jugador a la sala"""
@@ -157,6 +159,8 @@ class GameLogic:
         
         # Cambiar a fase nocturna
         self.phase = GamePhase.NIGHT_PHASE
+        self.robber_action_taken = False
+        self.robber_last_target_by_player = {}
         self.add_log("🌙 El juego ha comenzado. Es de noche...")
         
         return True
@@ -216,11 +220,68 @@ class GameLogic:
         if not player.role:
             return {'success': False, 'message': 'No tienes rol asignado'}
 
-        game_state = self._get_game_state()
-        result = player.role.execute_action(player_id, action_data, game_state)
+        if current_role == 'robber':
+            result = self._execute_robber_action(player_id, action_data)
+        else:
+            game_state = self._get_game_state()
+            result = player.role.execute_action(player_id, action_data, game_state)
         if result.get('success'):
             self.add_log(f"🎯 {player.name} ({player.get_role_name()}) ejecutó su acción.")
         return result
+
+    def _execute_robber_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Ejecuta la acción del ladrón: roba el rol de otro jugador (no centro)."""
+        if self.robber_action_taken:
+            return {'success': False, 'message': 'Acción de ladrón ya ejecutada'}
+
+        target_player_id = action_data.get('target_player_id')
+        if not target_player_id:
+            return {'success': False, 'message': 'Debes elegir un jugador'}
+        if target_player_id == player_id:
+            return {'success': False, 'message': 'No puedes robarte a ti mismo'}
+        if target_player_id not in self.players:
+            return {'success': False, 'message': 'Jugador no válido'}
+
+        robber = self.players[player_id]
+        target = self.players[target_player_id]
+
+        # Intercambiar roles actuales
+        robber.role, target.role = target.role, robber.role
+        self.robber_action_taken = True
+        self.robber_last_target_by_player[player_id] = {
+            'id': target_player_id,
+            'name': target.name
+        }
+
+        new_role = robber.get_role_name()
+        return {
+            'success': True,
+            'message': f'Has robado el rol de {target.name}. Tu nuevo rol es {new_role}.',
+            'robbed_player': {'id': target_player_id, 'name': target.name},
+            'new_role': new_role,
+            'robber_player_id': player_id
+        }
+
+    def execute_robber_auto_action(self) -> Dict[str, Any]:
+        """Ejecuta acción automática del ladrón al expirar el turno."""
+        if self.robber_action_taken:
+            return {'success': False, 'message': 'Acción de ladrón ya ejecutada'}
+
+        robber_id = None
+        for pid, player in self.players.items():
+            if player.get_role_name() == 'robber':
+                robber_id = pid
+                break
+
+        if not robber_id:
+            return {'success': False, 'message': 'No hay ladrón activo'}
+
+        possible_targets = [pid for pid in self.players.keys() if pid != robber_id]
+        if not possible_targets:
+            return {'success': False, 'message': 'No hay objetivos válidos'}
+
+        target_player_id = random.choice(possible_targets)
+        return self._execute_robber_action(robber_id, {'target_player_id': target_player_id})
 
     def advance_night_turn(self) -> bool:
         """Avanza al siguiente turno nocturno."""
@@ -237,6 +298,8 @@ class GameLogic:
         current_role = self.get_current_turn_role()
         if current_role:
             self.add_log(f"--- Fase: {current_role} ---")
+            if current_role == 'robber':
+                self.robber_action_taken = False
         return True
 
     def _get_game_state(self) -> Dict[str, Any]:
@@ -282,11 +345,24 @@ class GameLogic:
         # 🔧 FIX: La validación de turno es por ROL
         is_your_turn = player.get_role_name() == current_turn_role
         
+        your_role = player.get_role_name() if player.role else None
+        if self.phase == GamePhase.NIGHT_PHASE and player.original_role:
+            if player.original_role != 'robber':
+                your_role = player.original_role
+            else:
+                # El ladrón ve su rol actual durante la noche
+                your_role = player.get_role_name()
+
         private_data = {
-            'your_role': player.get_role_name() if player.role else None,
+            'your_role': your_role,
             'your_original_role': player.original_role,
             'is_your_turn': is_your_turn
         }
+
+        if self.phase == GamePhase.NIGHT_PHASE and player.original_role == 'robber':
+            robber_last_target = self.robber_last_target_by_player.get(player_id)
+            if robber_last_target:
+                private_data['robber_last_target'] = robber_last_target
         
         if is_your_turn:
             night_action_data = self.get_night_action_data_for_player(player_id)

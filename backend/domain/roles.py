@@ -253,8 +253,18 @@ class RobberRole(Role):
         return 4  # El ladr?n va despu?s de la pitonisa
     
     def get_night_action_data(self, player_id: str, game_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # TODO: Implementar en el futuro
-        return None
+        # El ladrón solo puede robar a otros jugadores (no al centro)
+        players = [
+            {'id': pid, 'name': player['name']}
+            for pid, player in game_state['players'].items()
+            if pid != player_id
+        ]
+
+        return {
+            'type': 'robber_choose',
+            'message': 'Elige un jugador para robar su rol (no puedes elegirte a ti mismo).',
+            'players': players
+        }
     
     def execute_action(self, player_id: str, action_data: Dict[str, Any], game_state: Dict[str, Any]) -> Dict[str, Any]:
         # TODO: Implementar en el futuro

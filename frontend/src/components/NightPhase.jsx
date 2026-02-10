@@ -8,6 +8,7 @@ import {
   WerewolfPhase, 
   MasonPhase, 
   SeerPhase,
+  RobberPhase,
   GenericPhase, 
   ActionResult 
 } from './night-phases';
@@ -24,6 +25,7 @@ export const NightPhase = React.memo(() => {
 
   // ✅ NUEVA ARQUITECTURA: Datos desde privateState con turn_timestamp
   const myRole = privateState?.your_role;
+  const myOriginalRole = privateState?.your_original_role || myRole;
   const currentTurnRole = getCurrentTurnRole();
   const isCurrentUserTurn = isMyTurn();
   const nightActionData = getNightAction();
@@ -116,8 +118,16 @@ export const NightPhase = React.memo(() => {
             actionResult={actionResult}
           />
         )}
+
+        {currentTurnRole === 'robber' && (
+          <RobberPhase
+            isMyTurn={isCurrentUserTurn}
+            nightActionData={nightActionData}
+            actionResult={actionResult}
+          />
+        )}
         
-        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && (
+        {currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && (
           <GenericPhase 
             currentTurnRole={currentTurnRole} 
             isMyTurn={isCurrentUserTurn} 
@@ -147,14 +157,19 @@ export const NightPhase = React.memo(() => {
         <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
           <h3 className="text-lg font-bold text-white mb-2">Tu Rol:</h3>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{ROLES[myRole]?.emoji || '❓'}</span>
+            <span className="text-3xl">{ROLES[myOriginalRole]?.emoji || '❓'}</span>
             <div>
               <p className="text-xl font-bold text-white">
-                {myRole ? ROLES[myRole]?.name : 'Desconocido'}
+                {myOriginalRole ? ROLES[myOriginalRole]?.name : 'Desconocido'}
               </p>
               <p className="text-slate-400">
-                Eres: {myRole || 'rol no asignado'}
+                Rol inicial: {myOriginalRole || 'rol no asignado'}
               </p>
+              {myRole && myOriginalRole && myRole !== myOriginalRole && (
+                <p className="text-amber-300">
+                  Rol actual: {ROLES[myRole]?.name || myRole}
+                </p>
+              )}
             </div>
           </div>
         </div>
