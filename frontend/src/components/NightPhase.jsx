@@ -49,7 +49,7 @@ export const NightPhase = React.memo(() => {
     
     return {
       role: privateState.current_turn_role,
-      phase: `Fase: ${privateState.current_turn_role}`,
+      phase: `Fase: ${ROLES[privateState.current_turn_role]?.name || privateState.current_turn_role}`,
       timestamp: privateState.turn_timestamp,
       duration: TURN_DURATION
     };
@@ -98,7 +98,7 @@ export const NightPhase = React.memo(() => {
             <span className="text-3xl">{isOpenEyes ? '👀' : (roleInfo?.emoji || '❓')}</span>
             <div>
               <h3 className="text-xl font-bold text-white">
-                {isOpenEyes ? 'Abrid los ojos todos' : `Fase: ${currentTurnRole}`}
+                {isOpenEyes ? 'Abrid los ojos todos' : `Fase: ${roleInfo?.name || currentTurnRole}`}
               </h3>
               {isCurrentUserTurn && !isOpenEyes && (
                 <p className="text-yellow-400 font-medium">¡Es tu turno!</p>
@@ -186,7 +186,7 @@ export const NightPhase = React.memo(() => {
         <div className="text-center mb-8">
           <div className="text-4xl mb-4">🌙</div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Noche - Fase: {currentTurnRole || 'Preparando...'}
+            Noche - Fase: {currentTurnRole ? (ROLES[currentTurnRole]?.name || currentTurnRole) : 'Preparando...'}
           </h1>
           <p className="text-slate-400">
             Los roles actúan en orden durante la noche
@@ -227,9 +227,9 @@ export const NightPhase = React.memo(() => {
             {isCurrentUserTurn ? (
               <p>🎯 Es tu turno.</p>
             ) : (
-              <p>⏱️ Esperando turno de: {currentTurnRole}</p>
+              <p>⏱️ Esperando turno de: {ROLES[currentTurnRole]?.name || currentTurnRole}</p>
             )}
-            <p>🎭 Tu rol: {myRole}</p>
+            <p>🎭 Tu rol: {ROLES[myRole]?.name || myRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
             {nightNotes?.werewolf && myRole === 'werewolf' && (
               <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
@@ -248,7 +248,7 @@ export const NightPhase = React.memo(() => {
             {/* Mostrar info del turno actual para todos */}
             {currentTurnRole && (
               <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-700">
-                <span className="font-bold text-cyan-300">Turno actual:</span> <span className="font-mono">{currentTurnRole}</span>
+                <span className="font-bold text-cyan-300">Turno actual:</span> <span className="font-mono">{ROLES[currentTurnRole]?.name || currentTurnRole}</span>
                 {nightActionData?.message && (
                   <div className="text-slate-400 text-xs mt-1">{nightActionData.message}</div>
                 )}
