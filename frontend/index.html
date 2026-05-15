@@ -7,6 +7,21 @@
     <title>🐺 One Night Werewolf DDD</title>
   </head>
   <body>
+    <script>
+      window.addEventListener('error', (event) => {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.color = 'red';
+        errorDiv.style.backgroundColor = 'white';
+        errorDiv.style.padding = '20px';
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '0';
+        errorDiv.style.left = '0';
+        errorDiv.style.zIndex = '9999';
+        errorDiv.style.width = '100%';
+        errorDiv.innerHTML = '<h2>Error Fatal en React:</h2><p>' + event.message + '</p><pre>' + (event.error ? event.error.stack : '') + '</pre>';
+        document.body.appendChild(errorDiv);
+      });
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -13,11 +13,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true, // Para mejor debugging y profiling
+    sourcemap: true,
     minify: true
-  },
-  // Optimizaciones para desarrollo
-  esbuild: {
-    jsxDev: true // Habilita JSX dev transforms para mejor profiling
   }
 })

@@ -173,10 +173,10 @@ def create_test_room():
     except Exception as e:
         print(f"❌ Error en create_test_room: {e}")
         return {'error': str(e)}, 500
-CORS(app, origins=["http://localhost:3000"])
+CORS(app, cors_allowed_origins="*")
 socketio = SocketIO(
     app, 
-    cors_allowed_origins="http://localhost:3000", 
+    cors_allowed_origins="*", 
     async_mode='eventlet', 
     logger=False, 
     engineio_logger=False,
