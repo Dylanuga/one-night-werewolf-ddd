@@ -25,16 +25,13 @@ export const ROLES = {
     color: '#16a34a'
   },
   seer: {
-    name: 'Pitonisa',
+    name: 'Vidente',
     description: 'Ve la carta de otro jugador o dos cartas del centro.',
     emoji: '🔮',
     color: '#7c3aed'
   },
   robber: {
     name: 'Ladrón',
-    description: 'Intercambia su carta con la de otro jugador y la ve.',
-    emoji: '🥷',
-    color: '#ea580c'
   },
   troublemaker: {
     name: 'Alborotadora',
