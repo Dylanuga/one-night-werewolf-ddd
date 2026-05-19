@@ -1,6 +1,7 @@
 // src/components/night-phases/WerewolfPhase.jsx - VERSIÓN OPTIMIZADA
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { ROLES } from '../../utils/constants';
 
 export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   const { executeNightAction, setNightNote } = useGameStore();
@@ -30,19 +31,7 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   useEffect(() => {
     if (actionResult?.center_role && actionResult?.center_position !== undefined) {
       const posNames = ['izquierda', 'centro', 'derecha'];
-      const roleNames = {
-        werewolf: 'lobo',
-        villager: 'aldeano',
-        seer: 'pitonisa',
-        robber: 'ladrón',
-        troublemaker: 'alborotadora',
-        tanner: 'curtidor',
-        drunk: 'borracho',
-        mason: 'masón',
-        hunter: 'cazador',
-        insomniac: 'insomne'
-      };
-      const info = `Carta ${posNames[actionResult.center_position] || 'izquierda'}: ${roleNames[actionResult.center_role] || actionResult.center_role}`;
+      const info = `Carta ${posNames[actionResult.center_position] || 'izquierda'}: ${ROLES[actionResult.center_role]?.name || actionResult.center_role}`;
       setCenterInfo(info);
       setNightNote('werewolf', `Has visto ${info}`);
     }
@@ -143,18 +132,7 @@ export const WerewolfPhase = ({ isMyTurn, nightActionData, actionResult }) => {
             <p className="text-white text-center mt-2">
               🃏 Has visto ({['izquierda', 'centro', 'derecha'][actionResult.center_position] || 'izquierda'}):{' '}
               <span className="font-bold text-yellow-400">
-                {({
-                    werewolf: 'lobo',
-                    villager: 'aldeano',
-                    seer: 'pitonisa',
-                    robber: 'ladrón',
-                    troublemaker: 'alborotadora',
-                    tanner: 'curtidor',
-                    drunk: 'borracho',
-                    mason: 'masón',
-                    hunter: 'cazador',
-                    insomniac: 'insomne'
-                  }[actionResult.center_role] || actionResult.center_role)}
+                {ROLES[actionResult.center_role]?.name || actionResult.center_role}
               </span>
             </p>
           )}

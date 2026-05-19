@@ -759,6 +759,25 @@ export const useGameStore = create((set, get) => ({
     const { emitEvent } = get();
     return emitEvent('end_voting');
   },
+
+  resetGame: (toPhase) => {
+    const { emitEvent } = get();
+    return emitEvent('reset_game', { to_phase: toPhase });
+  },
+
+  handleGameReset: () => {
+    set({
+      revealData: null,
+      myVote: null,
+      actionResult: null,
+      nightNotes: {
+        werewolf: null,
+        mason: null,
+        seer: null
+      },
+      error: null
+    });
+  },
   
   // Reset completo del estado
   reset: () => {

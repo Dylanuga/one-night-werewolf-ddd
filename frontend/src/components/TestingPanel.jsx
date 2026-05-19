@@ -1,7 +1,7 @@
 // src/components/TestingPanel.jsx
 import React, { useState, useEffect } from 'react';
 import { Play, Square, RotateCcw, Eye, Clock, Users, Settings, ArrowLeft, Plus, Minus } from 'lucide-react';
-import { ROLES } from '../utils/constants';
+import { ROLES, SOCKET_URL } from '../utils/constants';
 
 const TestingPanel = ({ onBack }) => {
   const [testStatus, setTestStatus] = useState(null);
@@ -23,7 +23,7 @@ const TestingPanel = ({ onBack }) => {
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const [selectedCenterIndex, setSelectedCenterIndex] = useState(0);
 
-  const API_BASE = 'http://localhost:5000';
+  const API_BASE = SOCKET_URL;
 
   // Función para agregar logs con timestamp
   const addLog = (message, type = 'info') => {

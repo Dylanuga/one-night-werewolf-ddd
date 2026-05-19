@@ -12,9 +12,21 @@ from infrastructure.room_repository import RoomRepository
 
 # Configuración de la aplicación
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+import os
+from functools import wraps
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+def require_test_endpoints(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if os.environ.get('ENABLE_TEST_ENDPOINTS', 'true').lower() not in ('true', '1', 'yes'):
+            return {'error': 'Endpoints de prueba desactivados en este entorno'}, 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/test/create-test-room', methods=['POST'])
+@require_test_endpoints
 def create_test_room():
     """
     Crea una sala de prueba con código fijo 'TEST' y modo de prueba activado.
@@ -173,10 +185,11 @@ def create_test_room():
     except Exception as e:
         print(f"❌ Error en create_test_room: {e}")
         return {'error': str(e)}, 500
-CORS(app, cors_allowed_origins="*")
+cors_origins = os.environ.get('CORS_ORIGINS', '*')
+CORS(app, cors_allowed_origins=cors_origins)
 socketio = SocketIO(
     app, 
-    cors_allowed_origins="*", 
+    cors_allowed_origins=cors_origins, 
     async_mode='eventlet', 
     logger=False, 
     engineio_logger=False,
@@ -617,6 +630,35 @@ def on_end_voting(data=None):
         print(f"Error finalizando votación: {e}")
         emit('error', {'message': 'Error interno del servidor'})
 
+@socketio.on('reset_game')
+def on_reset_game(data):
+    """El host reinicia la partida a LOBBY o ROLE_SELECTION"""
+    try:
+        if request.sid not in connected_players:
+            emit('error', {'message': 'No estás en ninguna sala'})
+            return
+
+        player_id = connected_players[request.sid]
+        room_code = game_service.get_player_room(player_id)
+        to_phase = data.get('to_phase') if data else None
+
+        if not room_code:
+            emit('error', {'message': 'No se encontró tu sala'})
+            return
+            
+        if to_phase not in ('lobby', 'role_selection'):
+            emit('error', {'message': 'Fase de destino inválida'})
+            return
+
+        success = game_service.reset_game(room_code, player_id, to_phase)
+        if not success:
+            emit('error', {'message': 'No se pudo reiniciar el juego (no eres el host o la partida no ha terminado)'})
+            return
+
+    except Exception as e:
+        print(f"Error reiniciando juego: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
+
 @socketio.on('night_action')
 def on_night_action(data):
     """Un jugador ejecuta su acción nocturna"""
@@ -710,6 +752,7 @@ def on_advance_turn(data=None):
         emit('error', {'message': f'Error al avanzar turno: {str(e)}'})
 
 @app.route('/debug/rooms')
+@require_test_endpoints
 def debug_rooms():
     """Endpoint de debug"""
     try:
@@ -719,6 +762,7 @@ def debug_rooms():
         return {'error': str(e)}, 500
 
 @app.route('/debug/connections')
+@require_test_endpoints
 def debug_connections():
     """Endpoint de debug"""
     try:
@@ -748,6 +792,7 @@ def debug_connections():
         return {'error': str(e)}, 500
 
 @app.route('/test/status')
+@require_test_endpoints
 def test_status():
     """Obtiene el estado actual de la sala TEST"""
     try:
@@ -791,6 +836,7 @@ def test_status():
         return {'error': str(e)}, 500
 
 @app.route('/test/reset', methods=['POST'])
+@require_test_endpoints
 def reset_test_room():
     """Elimina la sala TEST si existe"""
     try:
@@ -808,6 +854,7 @@ def reset_test_room():
         return {'error': str(e)}, 500
 
 @app.route('/test/advance-turn', methods=['POST'])
+@require_test_endpoints
 def advance_test_turn():
     """Avanza manualmente el turno en la sala TEST (solo para debugging)"""
     try:
@@ -847,6 +894,7 @@ def advance_test_turn():
         return {'error': str(e)}, 500
 
 @app.route('/test/presets')
+@require_test_endpoints
 def test_presets():
     """Devuelve configuraciones predefinidas para testing"""
     presets = {
@@ -890,6 +938,7 @@ def test_presets():
     }, 200
 
 @app.route('/test/disable/<room_code>', methods=['POST'])
+@require_test_endpoints
 def disable_test_mode(room_code):
     """Desactiva el modo de prueba para una sala"""
     try:
@@ -904,4 +953,6 @@ def disable_test_mode(room_code):
 if __name__ == '__main__':
     print("🐺 One Night Werewolf Backend iniciado")
     print("📡 Servidor corriendo en http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() in ('true', '1', 't')
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)

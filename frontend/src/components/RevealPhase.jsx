@@ -1,10 +1,11 @@
 // src/components/RevealPhase.jsx
 import React from 'react';
+import { RotateCcw, Home } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { ROLES } from '../utils/constants';
 
 export const RevealPhase = () => {
-  const { revealData } = useGameStore();
+  const { revealData, gameState, privateState, playerName, resetGame } = useGameStore();
 
   if (!revealData) {
     return (
@@ -31,6 +32,11 @@ export const RevealPhase = () => {
       eliminated: eliminated_ids?.includes(pid)
     };
   });
+
+  // Determinar si el jugador actual es host
+  const state = gameState || privateState;
+  const host = state?.players?.find(p => p.is_host);
+  const isHost = host?.name && playerName === host.name;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4">
@@ -74,6 +80,33 @@ export const RevealPhase = () => {
               </div>
             ))}
           </div>
+
+          {isHost ? (
+            <div className="mt-8 pt-6 border-t border-slate-700 flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => resetGame('role_selection')}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 font-bold rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20"
+              >
+                <RotateCcw size={20} />
+                Jugar otra vez
+              </button>
+              
+              <button
+                onClick={() => resetGame('lobby')}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-all duration-200 border border-slate-600 hover:border-slate-500"
+              >
+                <Home size={20} />
+                Volver al Lobby
+              </button>
+            </div>
+          ) : (
+            <div className="mt-8 pt-6 border-t border-slate-700 text-center">
+              <div className="inline-flex items-center gap-2 text-amber-400 text-sm bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
+                <div className="w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+                <span>Esperando a que el host inicie una nueva partida o regrese al lobby...</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

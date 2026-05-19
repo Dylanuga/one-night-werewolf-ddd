@@ -14,6 +14,22 @@ class GamePhase(Enum):
     VOTING = "voting"
     GAME_END = "game_end"
 
+ROLE_NAMES_ES = {
+    'werewolf': 'Lobo',
+    'villager': 'Aldeano',
+    'seer': 'Vidente',
+    'robber': 'Ladrón',
+    'troublemaker': 'Alborotadora',
+    'drunk': 'Borracho',
+    'insomniac': 'Insomne',
+    'hunter': 'Cazador',
+    'mason': 'Masón',
+    'tanner': 'Curtidor',
+    'doppelganger': 'Doppelgänger',
+    'minion': 'Esbirro',
+    'open_eyes': 'Abrid los ojos todos'
+}
+
 class GameLogic:
     """Lógica de dominio pura para el juego One Night Werewolf"""
     
@@ -149,7 +165,7 @@ class GameLogic:
             if role == 'werewolf':
                 werewolf_count_in_players += 1
             print(f"🔍 JUGADOR {i}: {self.players[player_id].name} -> {role}")
-            self.add_log(f"Rol asignado: {self.players[player_id].name} -> {role}")
+            self.add_log(f"Rol asignado: {self.players[player_id].name} -> {ROLE_NAMES_ES.get(role, role)}")
         
         # Asignar roles al centro
         self.center_cards = shuffled_roles[len(player_ids):]
@@ -159,7 +175,8 @@ class GameLogic:
         print(f"🔍 LOBOS EN JUGADORES: {werewolf_count_in_players}")
         print(f"🔍 LOBOS EN CENTRO: {werewolf_count_in_center}")
         
-        self.add_log(f"Cartas del centro: {', '.join(self.center_cards)}")
+        translated_center = [ROLE_NAMES_ES.get(r, r) for r in self.center_cards]
+        self.add_log(f"Cartas del centro: {', '.join(translated_center)}")
         self.add_log(f"🐺 Lobos entre jugadores: {werewolf_count_in_players}")
         
         # Preparar turnos nocturnos (ordenados por turn_order)
@@ -252,7 +269,8 @@ class GameLogic:
             game_state = self._get_game_state()
             result = player.role.execute_action(player_id, action_data, game_state)
         if result.get('success'):
-            self.add_log(f"🎯 {player.name} ({player.get_role_name()}) ejecutó su acción.")
+            role_es = ROLE_NAMES_ES.get(player.get_role_name(), player.get_role_name())
+            self.add_log(f"🎯 {player.name} ({role_es}) ejecutó su acción.")
         return result
 
     def _execute_robber_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -408,7 +426,7 @@ class GameLogic:
         
         current_role = self.get_current_turn_role()
         if current_role:
-            self.add_log(f"--- Fase: {current_role} ---")
+            self.add_log(f"--- Fase: {ROLE_NAMES_ES.get(current_role, current_role)} ---")
             if current_role == 'robber':
                 self.robber_action_taken = False
             if current_role == 'troublemaker':
@@ -494,6 +512,44 @@ class GameLogic:
 
         self.phase = GamePhase.GAME_END
         self.add_log("🏁 Fin de partida")
+
+    def reset_game(self, to_phase: str) -> bool:
+        """Reinicia la partida a LOBBY o ROLE_SELECTION"""
+        if self.phase != GamePhase.GAME_END:
+            return False
+        
+        # Limpiar roles de los jugadores
+        for player in self.players.values():
+            player.role = None
+            player.original_role = None
+            
+        # Limpiar variables de la partida
+        self.center_cards = []
+        self.current_turn_index = 0
+        self.night_turns = []
+        self.robber_action_taken = False
+        self.robber_last_target_by_player = {}
+        self.troublemaker_action_taken = False
+        self.troublemaker_last_swap_by_player = {}
+        self.drunk_action_taken = False
+        self.drunk_last_center_by_player = {}
+        self.votes = {}
+        self.final_roles = {}
+        self.eliminated_ids = []
+        self.winners = {}
+        self.night_finished = False
+        
+        if to_phase == "lobby":
+            self.phase = GamePhase.LOBBY
+            self.selected_roles = []
+            self.add_log("El host ha reiniciado el juego al Lobby")
+        elif to_phase == "role_selection":
+            self.phase = GamePhase.ROLE_SELECTION
+            self.add_log("El host ha reiniciado el juego a la Selección de Roles")
+        else:
+            return False
+            
+        return True
 
     def get_reveal_data(self) -> Dict[str, Any]:
         """Retorna los datos de revelación final."""

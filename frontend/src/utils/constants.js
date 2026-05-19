@@ -1,6 +1,6 @@
 // src/utils/constants.js
 
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 
 export const GAME_PHASES = {
   LOBBY: 'lobby',
@@ -89,6 +89,7 @@ export const SOCKET_EVENTS = {
   END_VOTING: 'end_voting',
   GET_GAME_STATE: 'get_game_state',
   ADVANCE_TURN: 'advance_turn', // 🆕 Nuevo evento para avanzar turno manualmente
+  RESET_GAME: 'reset_game',
   
   // Servidor -> Cliente
   CONNECTED: 'connected',
@@ -105,6 +106,7 @@ export const SOCKET_EVENTS = {
   VOTE_RECEIVED: 'vote_received',
   REVEAL: 'reveal',
   GAME_END: 'game_end',
+  GAME_RESET: 'game_reset',
   GAME_STATE: 'game_state',
   ERROR: 'error'
 };

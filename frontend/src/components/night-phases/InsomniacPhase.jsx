@@ -1,21 +1,11 @@
 // src/components/night-phases/InsomniacPhase.jsx
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { ROLES } from '../../utils/constants';
 
 export const InsomniacPhase = ({ isMyTurn, nightActionData }) => {
   const { privateState } = useGameStore();
-  const roleNameMap = {
-    werewolf: 'lobo',
-    villager: 'aldeano',
-    seer: 'pitonisa',
-    robber: 'ladrón',
-    troublemaker: 'alborotadora',
-    tanner: 'curtidor',
-    drunk: 'borracho',
-    mason: 'masón',
-    hunter: 'cazador',
-    insomniac: 'insomne'
-  };
+  // ROLES importado de constants
 
   if (!isMyTurn) {
     return (
@@ -36,7 +26,7 @@ export const InsomniacPhase = ({ isMyTurn, nightActionData }) => {
   }
 
   const currentRole = nightActionData.current_role || privateState?.your_role;
-  const roleName = roleNameMap[currentRole] || currentRole;
+  const roleName = ROLES[currentRole]?.name || currentRole;
 
   return (
     <div className="bg-indigo-900/20 border border-indigo-500 rounded-lg p-6 text-center">

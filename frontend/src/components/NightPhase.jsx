@@ -203,7 +203,7 @@ export const NightPhase = React.memo(() => {
                 {myOriginalRole ? ROLES[myOriginalRole]?.name : 'Desconocido'}
               </p>
               <p className="text-slate-400">
-                Rol inicial: {myOriginalRole || 'rol no asignado'}
+                Rol inicial: {ROLES[myOriginalRole]?.name || myOriginalRole || 'rol no asignado'}
               </p>
               {myRole && myOriginalRole && myRole !== myOriginalRole && (
                 <p className="text-amber-300">

@@ -352,6 +352,30 @@ class GameService:
             print(f"Error en end_voting_phase: {e}")
             return False
 
+    def reset_game(self, room_code: str, player_id: str, to_phase: str) -> bool:
+        """El host reinicia la partida a LOBBY o ROLE_SELECTION"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            
+            # Verificar que es el host
+            if player_id not in game.players or not game.players[player_id].is_host:
+                return False
+                
+            success = game.reset_game(to_phase)
+            if success:
+                self.room_repository.save_game(room_code, game)
+                # Emitir a todos que el juego se actualizo
+                self._emit_game_update(room_code)
+                # Emitir evento especifico de reset_game
+                self.emit_callback('game_reset', {'room_code': room_code, 'to_phase': to_phase}, room=room_code)
+                return True
+            return False
+        except Exception as e:
+            print(f"Error en reset_game de GameService: {e}")
+            return False
+
     def _emit_game_update(self, room_code: str):
         """Emite actualización del estado del juego a todos los jugadores"""
         try:

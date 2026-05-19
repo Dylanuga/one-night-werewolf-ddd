@@ -1,6 +1,7 @@
 ﻿// src/components/night-phases/SeerPhase.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { ROLES } from '../../utils/constants';
 
 export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   const { executeNightAction, setNightNote } = useGameStore();
@@ -9,18 +10,7 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   const [selectedCenters, setSelectedCenters] = useState([]);
   const [hasActed, setHasActed] = useState(false);
 
-  const roleNameMap = useMemo(() => ({
-    werewolf: 'lobo',
-    villager: 'aldeano',
-    seer: 'pitonisa',
-    robber: 'ladrón',
-    troublemaker: 'alborotadora',
-    tanner: 'curtidor',
-    drunk: 'borracho',
-    mason: 'masón',
-    hunter: 'cazador',
-    insomniac: 'insomne'
-  }), []);
+  // ROLES importado de constants
   const posNames = ['izquierda', 'centro', 'derecha'];
 
   useEffect(() => {
@@ -42,18 +32,18 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   useEffect(() => {
     if (!actionResult?.success) return;
     if (actionResult.seen_player) {
-      const roleName = roleNameMap[actionResult.seen_player.role] || actionResult.seen_player.role;
+      const roleName = ROLES[actionResult.seen_player.role]?.name || actionResult.seen_player.role;
       setNightNote('seer', `${actionResult.seen_player.name} es ${roleName}`);
     }
     if (actionResult.seen_center) {
       const entries = actionResult.seen_center.map(card => {
         const posLabel = posNames[card.position] || posNames[0];
-        const roleLabel = roleNameMap[card.role] || card.role;
+        const roleLabel = ROLES[card.role]?.name || card.role;
         return `${posLabel}: ${roleLabel}`;
       });
       setNightNote('seer', `Centro: ${entries.join(', ')}`);
     }
-  }, [actionResult, roleNameMap, posNames, setNightNote]);
+  }, [actionResult, posNames, setNightNote]);
 
   const toggleCenter = useCallback((pos) => {
     if (hasActed) return;
@@ -87,7 +77,7 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   if (!isMyTurn) {
     return (
       <div className="bg-purple-900/30 border border-purple-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-purple-300 mb-4">🔮 Turno: Pitonisa</h3>
+        <h3 className="text-xl font-bold text-purple-300 mb-4">🔮 Turno: Vidente</h3>
         <p className="text-purple-200 mb-2">Puede ver el rol de otro jugador o dos cartas del centro.</p>
         {nightActionData?.message && (
           <div className="text-slate-400 text-xs mt-2">{nightActionData.message}</div>
@@ -99,7 +89,7 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
   if (!nightActionData) {
     return (
       <div className="bg-purple-900/30 border border-purple-500 rounded-lg p-6 text-center">
-        <h3 className="text-xl font-bold text-purple-300 mb-4">🔮 Pitonisa</h3>
+        <h3 className="text-xl font-bold text-purple-300 mb-4">🔮 Vidente</h3>
         <p className="text-white">Esperando datos del servidor...</p>
       </div>
     );
@@ -203,14 +193,14 @@ export const SeerPhase = ({ isMyTurn, nightActionData, actionResult }) => {
           <p className="text-green-400 text-center font-bold">✓ {actionResult.message}</p>
           {actionResult.seen_player && (
             <p className="text-white text-center mt-2">
-              👤 {actionResult.seen_player.name} es <span className="font-bold">{roleNameMap[actionResult.seen_player.role] || actionResult.seen_player.role}</span>
+              👤 {actionResult.seen_player.name} es <span className="font-bold">{ROLES[actionResult.seen_player.role]?.name || actionResult.seen_player.role}</span>
             </p>
           )}
           {actionResult.seen_center && (
             <div className="text-white text-center mt-2">
               {actionResult.seen_center.map(card => {
                 const posLabel = posNames[card.position] || posNames[0];
-                const roleLabel = roleNameMap[card.role] || card.role;
+                const roleLabel = ROLES[card.role]?.name || card.role;
                 return (
                   <div key={card.position}>
                     🃏 {posLabel}: <span className="font-bold">{roleLabel}</span>

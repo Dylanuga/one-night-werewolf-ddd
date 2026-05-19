@@ -32,6 +32,7 @@ function App() {
     setRevealData,
     setMyVote,
     setError,
+    handleGameReset,
     addLog,
     setSelectedRoles,
     setPlayerName,
@@ -373,6 +374,11 @@ function App() {
       setRevealData(data);
     });
 
+    socket.on(SOCKET_EVENTS.GAME_RESET, () => {
+      console.log('🔄 Partida reiniciada por el host');
+      handleGameReset();
+    });
+
     socket.on(SOCKET_EVENTS.GAME_STATE, (data) => {
       console.log('📊 Estado del juego:', data);
       setGameState(data);
@@ -476,8 +482,9 @@ function App() {
   const renderCurrentScreen = () => {
     const screen = getScreenForCurrentUser();
     
-    // 🆕 NUEVO: Si estamos en modo testing, mostrar el panel
-    if (showTestingPanel) {
+    // 🆕 NUEVO: Si estamos en modo testing y está habilitado, mostrar el panel
+    const isTestingEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TESTING === 'true';
+    if (showTestingPanel && isTestingEnabled) {
       return <TestingPanel onBack={() => setShowTestingPanel(false)} />;
     }
     
@@ -548,18 +555,20 @@ function App() {
               </div>
 
               {/* 🆕 NUEVO: Botón de Testing Panel */}
-              <button
-                onClick={() => setShowTestingPanel(!showTestingPanel)}
-                className={`flex items-center gap-2 px-3 py-1 rounded text-sm transition-colors ${
-                  showTestingPanel 
-                    ? 'bg-purple-600 text-white hover:bg-purple-700' 
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
-                }`}
-                title="Panel de Testing"
-              >
-                <TestTube size={16} />
-                {showTestingPanel ? 'Salir Testing' : 'Testing'}
-              </button>
+              {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_TESTING === 'true') && (
+                <button
+                  onClick={() => setShowTestingPanel(!showTestingPanel)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded text-sm transition-colors ${
+                    showTestingPanel 
+                      ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                  }`}
+                  title="Panel de Testing"
+                >
+                  <TestTube size={16} />
+                  {showTestingPanel ? 'Salir Testing' : 'Testing'}
+                </button>
+              )}
               
               {/* Fase actual */}
               {gameState && !showTestingPanel && (
