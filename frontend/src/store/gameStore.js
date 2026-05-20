@@ -90,6 +90,8 @@ export const useGameStore = create((set, get) => ({
   
   // 🆕 NUEVO: Estado de roles seleccionados (para sincronización en tiempo real)
   selectedRoles: {},
+  showRoleSelector: false,
+  setShowRoleSelector: (show) => set({ showRoleSelector: show }),
   
   // Acciones
   setSocket: (socket) => set({ socket }),
@@ -762,11 +764,12 @@ export const useGameStore = create((set, get) => ({
 
   resetGame: (toPhase) => {
     const { emitEvent } = get();
+    set({ showRoleSelector: false });
     return emitEvent('reset_game', { to_phase: toPhase });
   },
 
-  handleGameReset: () => {
-    set({
+  handleGameReset: (toPhase) => {
+    const updates = {
       revealData: null,
       myVote: null,
       actionResult: null,
@@ -775,8 +778,13 @@ export const useGameStore = create((set, get) => ({
         mason: null,
         seer: null
       },
-      error: null
-    });
+      error: null,
+      showRoleSelector: false
+    };
+    if (toPhase === 'lobby') {
+      updates.selectedRoles = {};
+    }
+    set(updates);
   },
   
   // Reset completo del estado
@@ -803,6 +811,7 @@ export const useGameStore = create((set, get) => ({
       playerName: '',
       roomCode: '',
       selectedRoles: {},
+      showRoleSelector: false,
       optimisticState: { // Reset optimistic state
         actionInProgress: false,
         optimisticActionResult: null,

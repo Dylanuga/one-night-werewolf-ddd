@@ -9,7 +9,19 @@ export default defineConfig({
     open: true,
     // Configuración para desarrollo
     strictPort: false,
-    host: true
+    host: true,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:5000',
+        ws: true
+      },
+      '/test': {
+        target: 'http://localhost:5000'
+      },
+      '/debug': {
+        target: 'http://localhost:5000'
+      }
+    }
   },
   build: {
     outDir: 'dist',

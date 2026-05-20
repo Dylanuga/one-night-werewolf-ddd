@@ -37,13 +37,14 @@ function App() {
     setSelectedRoles,
     setPlayerName,
     setRoomCode,
-    joinRoom
+    joinRoom,
+    showRoleSelector,
+    setShowRoleSelector
   } = useGameStore();
 
   const socketRef = useRef(null);
   const isInitializedRef = useRef(false);
   
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [showError, setShowError] = useState(false);
   const [showTestingPanel, setShowTestingPanel] = useState(false);
   const autoJoinRef = useRef(false);
@@ -374,9 +375,10 @@ function App() {
       setRevealData(data);
     });
 
-    socket.on(SOCKET_EVENTS.GAME_RESET, () => {
-      console.log('🔄 Partida reiniciada por el host');
-      handleGameReset();
+    socket.on(SOCKET_EVENTS.GAME_RESET, (data) => {
+      console.log('🔄 Partida reiniciada por el host:', data);
+      handleGameReset(data?.to_phase);
+      setShowRoleSelector(false);
     });
 
     socket.on(SOCKET_EVENTS.GAME_STATE, (data) => {

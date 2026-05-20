@@ -370,6 +370,9 @@ class GameService:
                 self._emit_game_update(room_code)
                 # Emitir evento especifico de reset_game
                 self.emit_callback('game_reset', {'room_code': room_code, 'to_phase': to_phase}, room=room_code)
+                # Si se reinicia a role_selection, emitir los roles actuales seleccionados
+                if to_phase == "role_selection" and game.selected_roles:
+                    self.emit_callback('roles_set', {'roles': game.selected_roles}, room=room_code)
                 return True
             return False
         except Exception as e:
@@ -397,7 +400,7 @@ class GameService:
                         
                         # 🔧 FIX: Si estamos en turno de werewolf y este jugador es werewolf
                         if (current_turn_role == 'werewolf' and 
-                            player.get_role_name() == 'werewolf' and
+                            player.original_role == 'werewolf' and
                             game.phase.value == 'night_phase'):
                             
                             # Reenviar datos de night_action
@@ -413,7 +416,7 @@ class GameService:
                         
                         # 🔧 FIX: Si estamos en turno de mason y este jugador es mason
                         if (current_turn_role == 'mason' and 
-                            player.get_role_name() == 'mason' and
+                            player.original_role == 'mason' and
                             game.phase.value == 'night_phase'):
                             
                             # Reenviar datos de night_action
@@ -429,7 +432,7 @@ class GameService:
 
                         # 🔧 FIX: Si estamos en turno de seer y este jugador es seer
                         if (current_turn_role == 'seer' and 
-                            player.get_role_name() == 'seer' and
+                            player.original_role == 'seer' and
                             game.phase.value == 'night_phase'):
                             
                             # Reenviar datos de night_action
@@ -489,11 +492,8 @@ class GameService:
                         private_state['turn_timestamp'] = turn_timestamp
                         private_state['current_turn_role'] = role
                         
-                        # Determinar si es el turno de este jugador
-                        player_role = player.get_role_name()
-                        private_state['is_your_turn'] = (
-                            player_role == role or (role == 'insomniac' and player.original_role == 'insomniac')
-                        )
+                        # Determinar si es el turno de este jugador (basado en rol original)
+                        private_state['is_your_turn'] = (player.original_role == role)
                         
                         # Si es su turno, añadir datos de night_action
                         if private_state['is_your_turn']:
@@ -718,6 +718,14 @@ class GameService:
                     if troublemaker_id:
                         self._emit_to_player(room_code, troublemaker_id, 'action_result', auto_result)
             
+            # ✅ Auto-acción del borracho si no hizo click antes de expirar el turno
+            if current_role_before == 'drunk':
+                auto_result = game.execute_drunk_auto_action()
+                if auto_result.get('success'):
+                    drunk_id = auto_result.get('drunk_player_id')
+                    if drunk_id:
+                        self._emit_to_player(room_code, drunk_id, 'action_result', auto_result)
+            
             # Avanzar al siguiente turno
             advanced = game.advance_night_turn()
             
@@ -836,13 +844,13 @@ class GameService:
                 if current_turn_role:
                     private_state['current_turn_role'] = current_turn_role
                     
-                    # Verificar si es el turno del jugador
-                    player_role = game.players[player_id].get_role_name()
+                    # Verificar si es el turno del jugador (por rol original)
+                    player_role = game.players[player_id].original_role
                     private_state['is_your_turn'] = (player_role == current_turn_role)
                     
                     # Si es su turno, incluir night_action data si está disponible
                     if private_state['is_your_turn']:
-                        night_action_data = game.get_night_action_for_role(current_turn_role, player_id)
+                        night_action_data = game.get_night_action_data_for_player(player_id)
                         if night_action_data:
                             private_state['night_action'] = night_action_data
             

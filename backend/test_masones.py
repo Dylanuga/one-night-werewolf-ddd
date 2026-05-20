@@ -40,8 +40,7 @@ def test_masones_se_reconocen():
     assert success, "El juego debería iniciar correctamente"
     
     # Verificar que los masones tienen turno nocturno
-    assert 'player1' in game.night_turns, "Player1 (masón) debería tener turno nocturno"
-    assert 'player2' in game.night_turns, "Player2 (masón) debería tener turno nocturno"
+    assert 'mason' in game.night_turns, "Masones deberían tener turno nocturno"
     
     # Verificar datos de acción nocturna para masón 1
     action_data_1 = game.get_night_action_data_for_player('player1')
@@ -123,20 +122,20 @@ def test_masones_en_centro():
     success = game.start_game()
     assert success, "El juego debería iniciar correctamente"
     
-    # Verificar que hay un turno especial de "mason_wait"
+    # Verificar que hay un turno de "mason"
     print(f"🔍 Night turns: {game.night_turns}")
-    assert 'mason_wait' in game.night_turns, "Debería haber un turno especial mason_wait"
+    assert 'mason' in game.night_turns, "Debería haber un turno de mason"
     
-    # Verificar el turn role cuando es el turno de mason_wait
+    # Verificar el turn role cuando es el turno de mason
     original_index = game.current_turn_index
     for i, turn in enumerate(game.night_turns):
-        if turn == 'mason_wait':
-            game.current_turn_index = i
-            break
+      if turn == 'mason':
+        game.current_turn_index = i
+        break
     
     current_role = game.get_current_turn_role()
-    print(f"🔍 Current role durante mason_wait: {current_role}")
-    assert current_role == 'mason', "El rol actual debería ser 'mason' durante mason_wait"
+    print(f"🔍 Current role durante mason: {current_role}")
+    assert current_role == 'mason', "El rol actual debería ser 'mason' durante el turno de masón"
     
     # Restaurar índice original
     game.current_turn_index = original_index

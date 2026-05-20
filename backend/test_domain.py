@@ -51,7 +51,6 @@ def test_basic_game_logic():
     
     # Verificar turnos nocturnos
     print(f"🌙 Turnos nocturnos: {game.night_turns}")
-    print(f"🎯 Turno actual: {game.get_current_turn_player()}")
     print(f"🎭 Rol del turno: {game.get_current_turn_role()}")
     
     print("🎉 ¡Todas las pruebas pasaron!")

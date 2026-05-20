@@ -62,7 +62,7 @@ class GameLogic:
         if len(self.players) >= self.max_players:
             return False
         
-        if self.phase != GamePhase.LOBBY:
+        if self.phase != GamePhase.LOBBY and self.phase != GamePhase.ROLE_SELECTION:
             return False
         
         if player_id in self.players:
@@ -92,20 +92,13 @@ class GameLogic:
         return True
     
     def set_selected_roles(self, roles: List[str]) -> bool:
-        """Establece los roles seleccionados para la partida"""
-        if self.phase != GamePhase.LOBBY:
+        """Establece los roles seleccionados para la partida (draft/sincronización)"""
+        if self.phase != GamePhase.LOBBY and self.phase != GamePhase.ROLE_SELECTION:
             return False
         
-        # Validar que hay suficientes roles (jugadores + 3 cartas del centro)
-        required_roles = len(self.players) + 3
-        if len(roles) != required_roles:
-            return False
-        
-        # 🔧 FIX: Permitir cualquier número de lobos (mínimo 1 para que el juego tenga sentido)
-        werewolf_count = roles.count('werewolf')
-        if werewolf_count < 1:
-            return False
-        
+        # Sincronizar directamente los roles sin validación estricta de cantidad o presencia de lobo.
+        # Esto permite al host configurar los roles dinámicamente y reflejarlo a los demás en tiempo real.
+        # La validación estricta de cantidad y lobo se realiza en el start_game del GameService.
         self.selected_roles = roles.copy()
         self.phase = GamePhase.ROLE_SELECTION
         return True
@@ -233,15 +226,13 @@ class GameLogic:
             return None
         
         player = self.players[player_id]
-        if not player.role and player.original_role != 'insomniac':
+        if not player.original_role:
             return None
         
         game_state = self._get_game_state()
-        # Caso especial: insomne debe recibir info aunque su rol actual haya cambiado
-        if self.get_current_turn_role() == 'insomniac' and player.original_role == 'insomniac':
-            insomniac_role = RoleFactory.create_role('insomniac')
-            return insomniac_role.get_night_action_data(player_id, game_state)
-        return player.role.get_night_action_data(player_id, game_state)
+        # Se obtiene el rol original para calcular la acción que debe realizar
+        original_role_class = RoleFactory.create_role(player.original_role)
+        return original_role_class.get_night_action_data(player_id, game_state)
     
     def execute_night_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
         """Ejecuta una acción nocturna."""
@@ -253,8 +244,8 @@ class GameLogic:
         player = self.players[player_id]
         current_role = self.get_current_turn_role()
 
-        # 🔧 FIX: La validación ahora es por ROL
-        if player.get_role_name() != current_role:
+        # 🔧 FIX: La validación ahora es por ROL ORIGINAL
+        if player.original_role != current_role:
             return {'success': False, 'message': 'No es el turno de tu rol'}
         if not player.role:
             return {'success': False, 'message': 'No tienes rol asignado'}
@@ -267,9 +258,10 @@ class GameLogic:
             result = self._execute_drunk_action(player_id, action_data)
         else:
             game_state = self._get_game_state()
-            result = player.role.execute_action(player_id, action_data, game_state)
+            original_role_class = RoleFactory.create_role(player.original_role)
+            result = original_role_class.execute_action(player_id, action_data, game_state)
         if result.get('success'):
-            role_es = ROLE_NAMES_ES.get(player.get_role_name(), player.get_role_name())
+            role_es = ROLE_NAMES_ES.get(player.original_role, player.original_role)
             self.add_log(f"🎯 {player.name} ({role_es}) ejecutó su acción.")
         return result
 
@@ -298,9 +290,10 @@ class GameLogic:
         }
 
         new_role = robber.get_role_name()
+        new_role_es = ROLE_NAMES_ES.get(new_role, new_role)
         return {
             'success': True,
-            'message': f'Has robado el rol de {target.name}. Tu nuevo rol es {new_role}.',
+            'message': f'Has robado el rol de {target.name}. Tu nuevo rol es {new_role_es}.',
             'robbed_player': {'id': target_player_id, 'name': target.name},
             'new_role': new_role,
             'robber_player_id': player_id
@@ -313,7 +306,7 @@ class GameLogic:
 
         robber_id = None
         for pid, player in self.players.items():
-            if player.get_role_name() == 'robber':
+            if player.original_role == 'robber':
                 robber_id = pid
                 break
 
@@ -368,7 +361,7 @@ class GameLogic:
 
         troublemaker_id = None
         for pid, player in self.players.items():
-            if player.get_role_name() == 'troublemaker':
+            if player.original_role == 'troublemaker':
                 troublemaker_id = pid
                 break
 
@@ -412,6 +405,24 @@ class GameLogic:
             'center_position': center_pos,
             'drunk_player_id': player_id
         }
+
+    def execute_drunk_auto_action(self) -> Dict[str, Any]:
+        """Ejecuta acción automática del borracho al expirar el turno."""
+        if self.drunk_action_taken:
+            return {'success': False, 'message': 'Acción de borracho ya ejecutada'}
+
+        drunk_id = None
+        for pid, player in self.players.items():
+            if player.original_role == 'drunk':
+                drunk_id = pid
+                break
+
+        if not drunk_id:
+            return {'success': False, 'message': 'No hay borracho activo'}
+
+        # Elegir una posición del centro aleatoria
+        center_pos = random.randint(0, len(self.center_cards) - 1)
+        return self._execute_drunk_action(drunk_id, {'center_position': center_pos})
 
     def advance_night_turn(self) -> bool:
         """Avanza al siguiente turno nocturno."""
@@ -602,10 +613,8 @@ class GameLogic:
         player = self.players[player_id]
         current_turn_role = self.get_current_turn_role()
         
-        # 🔧 FIX: La validación de turno es por ROL
-        is_your_turn = player.get_role_name() == current_turn_role or (
-            current_turn_role == 'insomniac' and player.original_role == 'insomniac'
-        )
+        # 🔧 FIX: La validación de turno es por ROL ORIGINAL
+        is_your_turn = player.original_role == current_turn_role
         
         your_role = player.get_role_name() if player.role else None
         if self.phase in (GamePhase.NIGHT_PHASE, GamePhase.DAY_PHASE, GamePhase.VOTING) and player.original_role:
