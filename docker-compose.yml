@@ -3,8 +3,8 @@ services:
   backend:
     build:
       context: ./backend
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     environment:
       - PYTHONUNBUFFERED=1
       - FLASK_DEBUG=${FLASK_DEBUG:-true}
