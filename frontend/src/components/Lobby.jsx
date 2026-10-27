@@ -59,7 +59,21 @@ export const Lobby = ({ onNext, showRoleSelection = false }) => {
 
   const copyRoomCode = () => {
     if (currentRoomCode) {
-      navigator.clipboard.writeText(currentRoomCode);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(currentRoomCode);
+      } else {
+        // Fallback para HTTP (AWS sin HTTPS)
+        const textArea = document.createElement("textarea");
+        textArea.value = currentRoomCode;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error('Error al copiar', err);
+        }
+        document.body.removeChild(textArea);
+      }
     }
   };
 
