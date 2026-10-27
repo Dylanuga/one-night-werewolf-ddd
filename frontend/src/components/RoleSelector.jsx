@@ -11,6 +11,7 @@ export const RoleSelector = ({ onBack }) => {
     isConnected,
     setRoles,
     startGame,
+    setShowRoleSelector,
     selectedRoles: storeSelectedRoles,
     playerName
   } = useGameStore();
@@ -143,21 +144,12 @@ export const RoleSelector = ({ onBack }) => {
     );
   };
 
-  const handleStartGame = async () => {
-    if (!canStartGame()) return;
-    
-    // 🆕 NUEVO: Asegurar que los roles finales se envíen antes de iniciar
+  const handleStartGame = () => {
+    if (!canStartGame() || isStarting) return;
+    setIsStarting(true);
     sendRolesToServer(selectedRoles);
-    
-    // Pequeño delay para asegurar que lleguen al servidor
-    setTimeout(() => {
-      setIsStarting(true);
-      startGame();
-      
-      setTimeout(() => {
-        setIsStarting(false);
-      }, 1000);
-    }, 200);
+    setShowRoleSelector(false);
+    startGame();
   };
 
   // 🆕 NUEVO: Componente para mostrar roles seleccionados (vista de no-host)

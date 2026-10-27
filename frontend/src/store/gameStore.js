@@ -455,13 +455,17 @@ export const useGameStore = create((set, get) => ({
     return Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
   },
   
-  // Getters computados
   getCurrentPhase: () => {
     const { gameState, privateState } = get();
-    // CAMBIO: Usar privateState si gameState no está disponible
-    // Esto arregla el problema de que privateState tiene los datos pero gameState es null
-    const state = gameState || privateState;
-    return state?.phase || 'lobby';
+    const gamePhase = gameState?.phase;
+    const privatePhase = privateState?.phase;
+    
+    // Las fases activas de juego tienen prioridad absoluta sobre lobby o role_selection
+    const activePhases = ['night_phase', 'day_phase', 'voting', 'game_end'];
+    if (activePhases.includes(privatePhase)) return privatePhase;
+    if (activePhases.includes(gamePhase)) return gamePhase;
+    
+    return gamePhase || privatePhase || 'lobby';
   },
   
   getPlayerRole: () => {

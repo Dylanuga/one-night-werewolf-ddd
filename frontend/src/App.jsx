@@ -227,6 +227,7 @@ function App() {
 
     socket.on(SOCKET_EVENTS.GAME_STARTED, (data) => {
       console.log('🎮 Juego iniciado:', data);
+      setShowRoleSelector(false);
       console.log('🔧 Estado actual antes de GAME_STARTED:', {
         socketConnected: socket.connected,
         gameState: useGameStore.getState().gameState,
@@ -285,6 +286,7 @@ function App() {
 
     socket.on(SOCKET_EVENTS.TURN_START, (data) => {
       console.log('⏰ Inicio de turno recibido:', data);
+      setShowRoleSelector(false);
       
       // ✅ ARQUITECTURA UNIFICADA: TURN_START ahora es solo para UI visual
       // Los datos funcionales (privateState) llegan via PRIVATE_UPDATE unificado
@@ -450,6 +452,10 @@ function App() {
 
   // 🔧 NUEVA FUNCIÓN: Determinar qué pantalla mostrar según usuario y fase
   const getScreenForCurrentUser = () => {
+    if (currentPhase === GAME_PHASES.NIGHT_PHASE) return 'night_phase';
+    if (currentPhase === GAME_PHASES.DAY_PHASE) return 'day_phase';
+    if (currentPhase === GAME_PHASES.VOTING) return 'voting';
+    if (currentPhase === GAME_PHASES.GAME_END) return 'game_end';
     // Si estamos mostrando el selector de roles manualmente (solo host)
     if (showRoleSelector && currentPhase === GAME_PHASES.LOBBY && isCurrentUserHost) {
       return 'role_selector';
