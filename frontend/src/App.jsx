@@ -50,6 +50,7 @@ function App() {
   const autoJoinRef = useRef(false);
 
   const currentPhase = getCurrentPhase();
+  const isTestingEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TESTING === 'true';
 
   // Auto-join por URL (?autoJoin=1&room=TEST&name=Player1)
   useEffect(() => {
@@ -603,7 +604,7 @@ function App() {
           </div>
 
           {/* Panel lateral con log (solo en fases de juego) */}
-          {gameState && (currentPhase === GAME_PHASES.NIGHT_PHASE || currentPhase === GAME_PHASES.DAY_PHASE) && (
+          {showTestingPanel && isTestingEnabled && gameState && (currentPhase === GAME_PHASES.NIGHT_PHASE || currentPhase === GAME_PHASES.DAY_PHASE) && (
             <div className="lg:w-80 lg:border-l lg:border-slate-700 bg-slate-900">
               <div className="p-4 h-full">
                 <GameLog />

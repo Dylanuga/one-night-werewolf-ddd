@@ -158,7 +158,8 @@ class GameLogic:
             if role == 'werewolf':
                 werewolf_count_in_players += 1
             print(f"🔍 JUGADOR {i}: {self.players[player_id].name} -> {role}")
-            self.add_log(f"Rol asignado: {self.players[player_id].name} -> {ROLE_NAMES_ES.get(role, role)}")
+            if self.test_mode:
+                self.add_log(f"Rol asignado: {self.players[player_id].name} -> {ROLE_NAMES_ES.get(role, role)}")
         
         # Asignar roles al centro
         self.center_cards = shuffled_roles[len(player_ids):]
@@ -168,9 +169,10 @@ class GameLogic:
         print(f"🔍 LOBOS EN JUGADORES: {werewolf_count_in_players}")
         print(f"🔍 LOBOS EN CENTRO: {werewolf_count_in_center}")
         
-        translated_center = [ROLE_NAMES_ES.get(r, r) for r in self.center_cards]
-        self.add_log(f"Cartas del centro: {', '.join(translated_center)}")
-        self.add_log(f"🐺 Lobos entre jugadores: {werewolf_count_in_players}")
+        if self.test_mode:
+            translated_center = [ROLE_NAMES_ES.get(r, r) for r in self.center_cards]
+            self.add_log(f"Cartas del centro: {', '.join(translated_center)}")
+            self.add_log(f"🐺 Lobos entre jugadores: {werewolf_count_in_players}")
         
         # Preparar turnos nocturnos (ordenados por turn_order)
         self.night_turns = self._calculate_night_turns()
@@ -261,8 +263,9 @@ class GameLogic:
             original_role_class = RoleFactory.create_role(player.original_role)
             result = original_role_class.execute_action(player_id, action_data, game_state)
         if result.get('success'):
-            role_es = ROLE_NAMES_ES.get(player.original_role, player.original_role)
-            self.add_log(f"🎯 {player.name} ({role_es}) ejecutó su acción.")
+            if self.test_mode:
+                role_es = ROLE_NAMES_ES.get(player.original_role, player.original_role)
+                self.add_log(f"🎯 {player.name} ({role_es}) ejecutó su acción.")
         return result
 
     def _execute_robber_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -503,22 +506,27 @@ class GameLogic:
 
         if eliminated_tanner:
             team = 'tanner'
-            message = 'Gana el Bufón, el bromista 🃏.'
+            message = 'Gana el Curtidor (consiguió ser linchado).'
+            winning_player_ids = eliminated_tanner
         elif eliminated_werewolves:
             team = 'villagers'
-            message = 'Los aldeanos ganan (eliminaste a un lobo).'
+            message = 'Los aldeanos ganan (eliminaron a un hombre lobo).'
+            winning_player_ids = [pid for pid, r in self.final_roles.items() if r not in ('werewolf', 'tanner')]
         else:
             if len(werewolves_in_final) == 0:
                 team = 'villagers'
-                message = 'Los aldeanos ganan (no había lobos).'
+                message = 'Los aldeanos ganan (no había lobos en el pueblo).'
+                winning_player_ids = [pid for pid, r in self.final_roles.items() if r not in ('werewolf', 'tanner')]
             else:
                 team = 'werewolves'
-                message = 'Los lobos ganan (ningún lobo eliminado).'
+                message = 'Los lobos ganan (ningún lobo fue eliminado).'
+                winning_player_ids = werewolves_in_final
 
         self.winners = {
             'team': team,
             'message': message,
-            'eliminated_ids': self.eliminated_ids
+            'eliminated_ids': self.eliminated_ids,
+            'winning_player_ids': winning_player_ids
         }
 
         self.phase = GamePhase.GAME_END
