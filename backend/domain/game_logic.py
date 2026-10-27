@@ -56,19 +56,25 @@ class GameLogic:
         self.night_finished = False
         self.drunk_action_taken = False
         self.drunk_last_center_by_player: Dict[str, int] = {}
+        # Temporizadores configurables
+        self.discussion_duration: int = 300  # 5 minutos por defecto (120, 300, 600 segundos)
+        self.discussion_end_timestamp: Optional[float] = None
+        self.voting_duration: int = 60  # 60 segundos para votación
+        self.voting_end_timestamp: Optional[float] = None
     
     def add_player(self, player_id: str, name: str, socket_id: str, is_host: bool = False) -> bool:
-        """Añade un jugador a la sala"""
+        """Añade un jugador a la sala o reconecta uno existente"""
+        if player_id in self.players:
+            # Reconexión permitida en cualquier fase del juego
+            self.players[player_id].reconnect(socket_id)
+            self.add_log(f"{name} se ha reconectado a la partida")
+            return True
+
         if len(self.players) >= self.max_players:
             return False
         
         if self.phase != GamePhase.LOBBY and self.phase != GamePhase.ROLE_SELECTION:
             return False
-        
-        if player_id in self.players:
-            # Reconexión
-            self.players[player_id].reconnect(socket_id)
-            return True
         
         self.players[player_id] = Player(player_id, name, socket_id, is_host)
         self.add_log(f"{name} se unió a la sala")
@@ -449,12 +455,21 @@ class GameLogic:
                 self.drunk_action_taken = False
         return True
 
+    def set_discussion_duration(self, duration: int) -> bool:
+        """Establece la duración del debate en segundos (120, 300, 600)"""
+        if duration in (120, 300, 600):
+            self.discussion_duration = duration
+            return True
+        return False
+
     def start_voting_phase(self) -> bool:
         """Inicia la fase de votación (solo desde día)."""
         if self.phase != GamePhase.DAY_PHASE:
             return False
+        import time
         self.phase = GamePhase.VOTING
         self.votes = {pid: None for pid in self.players.keys()}
+        self.voting_end_timestamp = time.time() + self.voting_duration
         self.add_log("🗳️ Votación iniciada")
         return True
 
@@ -470,15 +485,29 @@ class GameLogic:
         self.votes[voter_id] = target_id
         all_voted = all(v is not None for v in self.votes.values())
 
+        # Comprobar si todos los jugadores actualmente conectados han votado
+        connected_pids = [pid for pid, p in self.players.items() if p.is_connected]
+        all_connected_voted = bool(connected_pids) and all(self.votes.get(pid) is not None for pid in connected_pids)
+
         return {
             'success': True,
-            'all_voted': all_voted
+            'all_voted': all_voted,
+            'all_connected_voted': all_connected_voted
         }
 
-    def can_finalize(self) -> bool:
-        """Indica si todos han votado y se puede revelar."""
+    def can_finalize(self, allow_partial: bool = False) -> bool:
+        """Indica si todos han votado o se permite revelar."""
         if self.phase != GamePhase.VOTING:
             return False
+        if allow_partial:
+            # Permitir finalizar con los votos actuales (temporizador a 0 o forzado)
+            return any(v is not None for v in self.votes.values()) if self.votes else True
+
+        # Si todos los jugadores actualmente conectados han votado, permitir finalizar
+        connected_pids = [pid for pid, p in self.players.items() if p.is_connected]
+        if connected_pids and all(self.votes.get(pid) is not None for pid in connected_pids):
+            return True
+
         return bool(self.votes) and all(v is not None for v in self.votes.values())
 
     def _finalize_game(self):
@@ -609,7 +638,11 @@ class GameLogic:
             'selected_roles_count': len(self.selected_roles),
             'current_turn_role': self.get_current_turn_role(),
             'votes': self.votes if self.phase == GamePhase.VOTING else {},
-            'logs': self.game_logs[-10:]
+            'logs': self.game_logs[-10:],
+            'discussion_duration': self.discussion_duration,
+            'discussion_end_timestamp': self.discussion_end_timestamp,
+            'voting_duration': self.voting_duration,
+            'voting_end_timestamp': self.voting_end_timestamp
         }
 
     def get_private_state_for_player(self, player_id: str) -> Dict[str, Any]:

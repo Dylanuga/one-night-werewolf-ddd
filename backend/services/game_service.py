@@ -19,6 +19,8 @@ class GameService:
         self.start_background_task = start_background_task
         self.sleep_fn = sleep_fn
         self.turn_timer_tokens: Dict[str, int] = {}
+        self.discussion_timer_tokens: Dict[str, int] = {}
+        self.voting_timer_tokens: Dict[str, int] = {}
         self.TURN_DURATION = 12  # segundos (default)
         self.turn_duration_by_room: Dict[str, int] = {}
 
@@ -253,14 +255,77 @@ class GameService:
             print(f"Error en execute_night_action: {e}")
             return {'success': False, 'message': 'Error interno del servidor'}
 
+    def set_discussion_timer(self, room_code: str, host_id: str, duration: int) -> bool:
+        """Configura la duración del debate en segundos (120, 300 o 600)"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return False
+            if host_id not in game.players or not game.players[host_id].is_host:
+                return False
+            success = game.set_discussion_duration(duration)
+            if success:
+                self.room_repository.save_game(room_code, game)
+                self._emit_game_update(room_code)
+                print(f"⏱️ Duración de discusión actualizada a {duration}s en sala {room_code}")
+            return success
+        except Exception as e:
+            print(f"Error en set_discussion_timer: {e}")
+            return False
+
     def _advance_to_day_phase(self, room_code: str):
-        """Avanza a la fase de día"""
+        """Avanza a la fase de día e inicia el temporizador de debate"""
         try:
             self._cancel_turn_timer(room_code)
+            game = self.room_repository.get_game(room_code)
+            if not game:
+                return
+
+            import time
+            game.phase = GamePhase.DAY_PHASE
+            game.discussion_end_timestamp = time.time() + game.discussion_duration
+            self.room_repository.save_game(room_code, game)
             self._emit_game_update(room_code)
-            print(f"[PHASE] día en sala {room_code}")
+            print(f"[PHASE] día en sala {room_code}, duración={game.discussion_duration}s")
+            
+            # Iniciar temporizador de discusión en background
+            self._start_discussion_timer(room_code)
         except Exception as e:
             print(f"Error en _advance_to_day_phase: {e}")
+
+    def _start_discussion_timer(self, room_code: str):
+        """Inicia el temporizador de debate en segundo plano"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game or game.phase != GamePhase.DAY_PHASE:
+                return
+
+            token = self.discussion_timer_tokens.get(room_code, 0) + 1
+            self.discussion_timer_tokens[room_code] = token
+            duration = game.discussion_duration
+
+            def discussion_task(expected_token: int, wait_seconds: int):
+                try:
+                    self.sleep_fn(wait_seconds)
+                    if self.discussion_timer_tokens.get(room_code) != expected_token:
+                        return
+
+                    print(f"⏰ [TIMER] Debate terminado en sala {room_code}. Iniciando votación automáticamente.")
+                    self.start_voting_phase(room_code, host_id=None, auto=True)
+                except Exception as e:
+                    print(f"Error en discussion_task: {e}")
+
+            self.start_background_task(discussion_task, token, duration)
+        except Exception as e:
+            print(f"Error en _start_discussion_timer: {e}")
+
+    def _cancel_discussion_timer(self, room_code: str):
+        """Cancela el temporizador de debate"""
+        try:
+            if room_code in self.discussion_timer_tokens:
+                del self.discussion_timer_tokens[room_code]
+        except Exception as e:
+            print(f"Error en _cancel_discussion_timer: {e}")
 
     def _start_open_eyes_phase(self, room_code: str):
         """Muestra mensaje de transición antes del día."""
@@ -291,24 +356,64 @@ class GameService:
         except Exception as e:
             print(f"Error en _start_open_eyes_phase: {e}")
 
-    def start_voting_phase(self, room_code: str, host_id: str) -> bool:
-        """El host finaliza discusión e inicia votación."""
+    def start_voting_phase(self, room_code: str, host_id: Optional[str] = None, auto: bool = False) -> bool:
+        """El host finaliza discusión o el temporizador expira e inicia votación."""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
                 return False
-            if host_id not in game.players or not game.players[host_id].is_host:
-                return False
+            if not auto:
+                if not host_id or host_id not in game.players or not game.players[host_id].is_host:
+                    return False
+
+            self._cancel_discussion_timer(room_code)
             if not game.start_voting_phase():
                 return False
 
             self.room_repository.save_game(room_code, game)
             self._emit_game_update(room_code)
             self.emit_callback('voting_started', {'room_code': room_code}, room=room_code)
+            
+            # Iniciar temporizador de votación (60 segundos)
+            self._start_voting_timer(room_code)
             return True
         except Exception as e:
             print(f"Error en start_voting_phase: {e}")
             return False
+
+    def _start_voting_timer(self, room_code: str):
+        """Inicia el temporizador de votación (60s) en segundo plano"""
+        try:
+            game = self.room_repository.get_game(room_code)
+            if not game or game.phase != GamePhase.VOTING:
+                return
+
+            token = self.voting_timer_tokens.get(room_code, 0) + 1
+            self.voting_timer_tokens[room_code] = token
+            duration = game.voting_duration
+
+            def voting_task(expected_token: int, wait_seconds: int):
+                try:
+                    self.sleep_fn(wait_seconds)
+                    if self.voting_timer_tokens.get(room_code) != expected_token:
+                        return
+
+                    print(f"⏰ [TIMER] Tiempo de votación terminado en sala {room_code}. Finalizando con votos emitidos.")
+                    self.end_voting_phase(room_code, host_id=None, force=True)
+                except Exception as e:
+                    print(f"Error en voting_task: {e}")
+
+            self.start_background_task(voting_task, token, duration)
+        except Exception as e:
+            print(f"Error en _start_voting_timer: {e}")
+
+    def _cancel_voting_timer(self, room_code: str):
+        """Cancela el temporizador de votación"""
+        try:
+            if room_code in self.voting_timer_tokens:
+                del self.voting_timer_tokens[room_code]
+        except Exception as e:
+            print(f"Error en _cancel_voting_timer: {e}")
 
     def submit_vote(self, room_code: str, player_id: str, target_id: str) -> Dict[str, Any]:
         """Registra un voto y finaliza partida si todos votaron."""
@@ -322,24 +427,33 @@ class GameService:
                 self.room_repository.save_game(room_code, game)
                 self._emit_game_update(room_code)
 
+                # Si todos los jugadores conectados han votado, auto-finalizar tras breve pausa
+                if result.get('all_connected_voted') or result.get('all_voted'):
+                    def auto_finalize():
+                        self.sleep_fn(1)
+                        self.end_voting_phase(room_code, host_id=None, force=True)
+                    self.start_background_task(auto_finalize)
+
             return result
         except Exception as e:
             print(f"Error en submit_vote: {e}")
             return {'success': False, 'message': 'Error interno del servidor'}
 
-    def end_voting_phase(self, room_code: str, host_id: str) -> bool:
-        """El host finaliza votación y revela resultados."""
+    def end_voting_phase(self, room_code: str, host_id: Optional[str] = None, force: bool = False) -> bool:
+        """El host (o temporizador) finaliza votación y revela resultados."""
         try:
             game = self.room_repository.get_game(room_code)
             if not game:
                 return False
-            if host_id not in game.players or not game.players[host_id].is_host:
-                return False
             if game.phase == GamePhase.GAME_END:
                 return True
-            if not game.can_finalize():
-                return False
+            if not force:
+                if not host_id or host_id not in game.players or not game.players[host_id].is_host:
+                    return False
+                if not game.can_finalize(allow_partial=True):
+                    return False
 
+            self._cancel_voting_timer(room_code)
             # Finalizar y revelar
             game._finalize_game()
             self.room_repository.save_game(room_code, game)

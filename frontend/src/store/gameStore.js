@@ -1,6 +1,38 @@
 // src/store/gameStore.js
 import { create } from 'zustand';
 
+// Funciones de persistencia de sesión en navegador móvil/escritorio
+export const getStoredSession = () => {
+  try {
+    const raw = sessionStorage.getItem('werewolf_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const saveSession = (roomCode, playerName, playerId = null, isHost = false) => {
+  try {
+    sessionStorage.setItem('werewolf_session', JSON.stringify({
+      roomCode: roomCode ? roomCode.toUpperCase() : '',
+      playerName: playerName || '',
+      playerId,
+      isHost,
+      savedAt: Date.now()
+    }));
+  } catch (e) {
+    console.warn('No se pudo guardar la sesión en sessionStorage', e);
+  }
+};
+
+export const clearSession = () => {
+  try {
+    sessionStorage.removeItem('werewolf_session');
+  } catch (e) {
+    console.warn('No se pudo limpiar la sesión', e);
+  }
+};
+
 // ✅ NUEVA FUNCIÓN: Comparación profunda optimizada para estados específicos
 const deepEqual = (obj1, obj2) => {
   if (obj1 === obj2) return true;
@@ -19,6 +51,8 @@ const deepEqual = (obj1, obj2) => {
   
   return true;
 };
+
+const initialSession = getStoredSession();
 
 export const useGameStore = create((set, get) => ({
   // ✅ Sistema de debounce para actualizaciones de estado
@@ -85,8 +119,10 @@ export const useGameStore = create((set, get) => ({
   logs: [],
   
   // Estado del formulario de entrada
-  playerName: '',
-  roomCode: '',
+  playerName: initialSession?.playerName || '',
+  roomCode: initialSession?.roomCode || '',
+  discussionDuration: 300, // 5 minutos por defecto (120, 300, 600)
+  setDiscussionDuration: (sec) => set({ discussionDuration: sec }),
   
   // 🆕 NUEVO: Estado de roles seleccionados (para sincronización en tiempo real)
   selectedRoles: {},
@@ -658,29 +694,50 @@ export const useGameStore = create((set, get) => ({
   },
   
   createRoom: (name) => {
-    const { emitEvent } = get();
+    const { emitEvent, setPlayerName } = get();
+    setPlayerName(name);
     return emitEvent('create_room', { name });
   },
   
   joinRoom: (roomCode, name) => {
-    const { emitEvent } = get();
+    const { emitEvent, setRoomCode, setPlayerName } = get();
+    setRoomCode(roomCode);
+    setPlayerName(name);
+    saveSession(roomCode, name);
     return emitEvent('join_room', { room_code: roomCode, name });
   },
   
+  reconnectSession: (roomCode, playerName, playerId = null) => {
+    const { emitEvent } = get();
+    return emitEvent('reconnect_session', {
+      room_code: roomCode,
+      player_name: playerName,
+      player_id: playerId
+    });
+  },
+
+  setDiscussionTimer: (duration) => {
+    const { emitEvent } = get();
+    set({ discussionDuration: duration });
+    return emitEvent('set_discussion_timer', { duration });
+  },
+
   leaveRoom: () => {
-    const { emitEvent, setSelectedRoles } = get();
+    const { emitEvent, setSelectedRoles, roomCode, playerName } = get();
+    clearSession();
     setSelectedRoles({});
-    return emitEvent('leave_room');
+    return emitEvent('leave_room', { room_code: roomCode, player_name: playerName });
   },
   
-  setRoles: (roles) => {
-    const { emitEvent, setSelectedRoles } = get();
+  setRoles: (roles, customDuration = null) => {
+    const { emitEvent, setSelectedRoles, discussionDuration } = get();
     const roleCount = {};
     roles.forEach(role => {
       roleCount[role] = (roleCount[role] || 0) + 1;
     });
     setSelectedRoles(roleCount);
-    return emitEvent('set_roles', { roles });
+    const duration = customDuration || discussionDuration;
+    return emitEvent('set_roles', { roles, discussion_duration: duration });
   },
   
   startGame: () => {
@@ -793,6 +850,7 @@ export const useGameStore = create((set, get) => ({
   
   // Reset completo del estado
   reset: () => {
+    clearSession();
     // ✅ FIX: Limpiar todos los timers de debounce
     const { debounceTimers } = get();
     Object.values(debounceTimers).forEach(timer => clearTimeout(timer));

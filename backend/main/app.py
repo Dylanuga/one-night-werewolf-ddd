@@ -405,33 +405,168 @@ def on_join_room(data):
         print(f"Error uniéndose a sala: {e}")
         emit('error', {'message': 'Error interno del servidor'})
 
-@socketio.on('leave_room')
-def on_leave_room(data=None):
-    """Abandonar la sala actual"""
+@socketio.on('reconnect_session')
+def on_reconnect_session(data):
+    """Reconecta una sesión de jugador tras pérdida de conexión, cambio de app o recarga"""
     try:
-        if request.sid not in connected_players:
-            emit('error', {'message': 'No estás en ninguna sala'})
+        room_code = data.get('room_code', '').strip().upper() if data else ''
+        player_name = data.get('player_name', '').strip() if data else ''
+        player_id = data.get('player_id') if data else None
+
+        print(f"🔄 INTENTO DE RECONEXIÓN: room={room_code}, name={player_name}, id={player_id}, sid={request.sid}")
+
+        if not room_code:
+            emit('reconnect_failed', {'message': 'Código de sala no proporcionado'})
             return
-        
+
+        game = room_repository.get_game(room_code)
+        if not game:
+            print(f"❌ RECONEXIÓN FALLIDA: Sala {room_code} no existe")
+            emit('reconnect_failed', {'message': 'La sala ya no existe'})
+            return
+
+        # Buscar jugador por player_id o por coincidencia de nombre
+        target_pid = None
+        if player_id and player_id in game.players:
+            target_pid = player_id
+        elif player_name:
+            for pid, p in game.players.items():
+                if p.name.strip().lower() == player_name.strip().lower():
+                    target_pid = pid
+                    break
+
+        if not target_pid:
+            print(f"❌ RECONEXIÓN FALLIDA: Jugador {player_name} no encontrado en sala {room_code}")
+            emit('reconnect_failed', {'message': 'Jugador no encontrado en la sala'})
+            return
+
+        # Reconectar en el dominio y en el mapping de sockets
+        player = game.players[target_pid]
+        player.reconnect(request.sid)
+        connected_players[request.sid] = target_pid
+        room_repository.save_game(room_code, game)
+        join_room(room_code)
+
+        print(f"✅ RECONEXIÓN EXITOSA: {player.name} ({target_pid}) en sala {room_code}")
+
+        # 1. Notificar éxito al cliente
+        emit('reconnected_success', {
+            'room_code': room_code,
+            'player_name': player.name,
+            'player_id': target_pid,
+            'is_host': player.is_host,
+            'phase': game.phase.value
+        })
+        emit('room_joined', {'room_code': room_code})
+
+        # 2. Sincronizar roles seleccionados si existen
+        if game.selected_roles:
+            emit('roles_set', {'roles': game.selected_roles})
+
+        # 3. Sincronizar estado privado y público
+        private_state = game_service.get_private_state(room_code, target_pid)
+        if private_state:
+            emit('private_update', private_state)
+
+        # 4. Sincronizar datos de fase nocturna si corresponde
+        if game.phase.value == 'night_phase':
+            current_turn = game.get_current_turn_role()
+            if current_turn:
+                emit('turn_start', {'role': current_turn, 'duration': game_service._get_turn_duration(room_code)})
+                if player.original_role == current_turn:
+                    action_data = game.get_night_action_data_for_player(target_pid)
+                    if action_data:
+                        emit('night_action', action_data)
+
+        # 5. Sincronizar fase de votación si corresponde
+        if game.phase.value == 'voting':
+            emit('voting_started', {'room_code': room_code})
+
+        # 6. Sincronizar fase de revelación final si corresponde
+        if game.phase.value == 'game_end':
+            reveal_data = game.get_reveal_data()
+            emit('reveal', reveal_data)
+            emit('game_end', reveal_data)
+
+        # 7. Actualizar el estado público a toda la sala
+        game_service._emit_game_update(room_code)
+
+    except Exception as e:
+        print(f"❌ Error en reconnect_session: {e}")
+        emit('reconnect_failed', {'message': 'Error interno al reconectar'})
+
+@socketio.on('set_discussion_timer')
+def on_set_discussion_timer(data):
+    """El host selecciona la duración del temporizador de debate (120, 300, 600 segundos)"""
+    try:
+        duration = data.get('duration', 300) if data else 300
+        if duration not in (120, 300, 600):
+            emit('error', {'message': 'Duración inválida. Opciones: 120, 300, 600 segundos'})
+            return
+
+        if request.sid not in connected_players:
+            recovered_player_id, _ = recover_player_by_socket_or_host(request.sid)
+            if recovered_player_id:
+                connected_players[request.sid] = recovered_player_id
+            else:
+                emit('error', {'message': 'No estás en ninguna sala'})
+                return
+
         player_id = connected_players[request.sid]
         room_code = game_service.get_player_room(player_id)
-        
         if not room_code:
             emit('error', {'message': 'No se encontró tu sala'})
             return
-        
-        success = game_service.leave_room(room_code, player_id)
+
+        success = game_service.set_discussion_timer(room_code, player_id, duration)
         if success:
-            leave_room(room_code)
-            if request.sid in connected_players:
-                del connected_players[request.sid]
-            emit('room_left')
+            socketio.emit('timer_settings_updated', {'discussion_duration': duration}, room=room_code)
+            emit('timer_settings_updated', {'discussion_duration': duration})
+            print(f"⏱️ Host configuró tiempo de debate: {duration}s en sala {room_code}")
         else:
-            emit('error', {'message': 'No se pudo abandonar la sala'})
-        
+            emit('error', {'message': 'Solo el host puede cambiar la duración del debate'})
+
+    except Exception as e:
+        print(f"Error configurando temporizador: {e}")
+        emit('error', {'message': 'Error interno del servidor'})
+
+@socketio.on('leave_room')
+def on_leave_room(data=None):
+    """Abandonar la sala actual con recuperación tolerante a desconexión"""
+    try:
+        player_id = connected_players.get(request.sid)
+        room_code = None
+
+        if data and isinstance(data, dict):
+            room_code = data.get('room_code')
+            name = data.get('player_name') or data.get('name')
+            if not player_id and room_code and name:
+                player_id = find_existing_player_in_room(room_code, name)
+
+        if not player_id:
+            recovered_id, recovered_room = recover_player_by_socket_or_host(request.sid)
+            if recovered_id:
+                player_id = recovered_id
+                if not room_code:
+                    room_code = recovered_room
+
+        if player_id:
+            if not room_code:
+                room_code = game_service.get_player_room(player_id)
+            if room_code:
+                game_service.leave_room(room_code, player_id)
+                leave_room(room_code)
+
+        if request.sid in connected_players:
+            del connected_players[request.sid]
+
+        # IMPORTANTE: SIEMPRE emitir room_left para garantizar que el cliente limpie su UI
+        emit('room_left')
+        print(f"👋 leave_room ejecutado para sid={request.sid}, player_id={player_id}")
+
     except Exception as e:
         print(f"Error abandonando sala: {e}")
-        emit('error', {'message': 'Error interno del servidor'})
+        emit('room_left')
 
 @socketio.on('set_roles')
 def on_set_roles(data):
@@ -489,6 +624,10 @@ def on_set_roles(data):
         
         success = game_service.set_selected_roles(room_code, player_id, roles)
         if success:
+            duration = data.get('discussion_duration')
+            if duration in (120, 300, 600):
+                game_service.set_discussion_timer(room_code, player_id, duration)
+
             # 🎯 CRÍTICO: Emitir roles_set a TODA LA SALA, NO solo al host
             print(f"✅ EMITIENDO roles_set A TODA LA SALA {room_code}: {roles}")
             socketio.emit('roles_set', {'roles': roles}, room=room_code)

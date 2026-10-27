@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { useGameStore } from './store/gameStore';
+import { useGameStore, getStoredSession, saveSession, clearSession } from './store/gameStore';
 import { Lobby } from './components/Lobby';
 import { RoleSelector } from './components/RoleSelector';
 import { NightPhase } from './components/NightPhase';
@@ -105,11 +105,30 @@ function App() {
     const socket = socketRef.current;
     setSocket(socket); // Guardar la instancia en el store
 
+    // Función para auto-recuperar sesión si el usuario cambió de app o perdió conexión
+    const tryAutoReconnect = () => {
+      const state = useGameStore.getState();
+      const stored = getStoredSession();
+      const room = state.roomCode || stored?.roomCode;
+      const name = state.playerName || stored?.playerName;
+      const pid = stored?.playerId;
+
+      if (room && name) {
+        console.log('🔄 Intentando auto-reconexión a sala:', { room, name, pid, socketId: socket.id });
+        socket.emit('reconnect_session', {
+          room_code: room,
+          player_name: name,
+          player_id: pid
+        });
+      }
+    };
+
     // Eventos básicos de conexión
     socket.on('connect', () => {
       console.log('🔗 SOCKET CONECTADO:', socket.id);
       console.log('🔍 Socket conectado exitosamente');
       setConnectionStatus(true);
+      tryAutoReconnect();
     });
 
     socket.on('disconnect', (reason) => {
@@ -134,6 +153,7 @@ function App() {
       console.log('🔄 SOCKET RECONECTADO después de', attemptNumber, 'intentos');
       setConnectionStatus(true);
       addLog(`Reconectado tras ${attemptNumber} intentos`);
+      tryAutoReconnect();
     });
 
     socket.on('reconnect_attempt', (attemptNumber) => {
@@ -183,27 +203,52 @@ function App() {
       console.log('✅ Conexión confirmada:', data.socket_id);
     });
 
+    // Eventos de sesión y reconexión
+    socket.on('reconnected_success', (data) => {
+      console.log('🎉 Sesión recuperada exitosamente:', data);
+      addLog(`Sesión recuperada en sala ${data.room_code}`);
+      saveSession(data.room_code, data.player_name, data.player_id, data.is_host);
+      setRoomCode(data.room_code);
+      setPlayerName(data.player_name);
+    });
+
+    socket.on('reconnect_failed', (data) => {
+      console.warn('⚠️ No se pudo reanudar sesión previa:', data?.message);
+      clearSession();
+      if (useGameStore.getState().gameState) {
+        setError(data?.message || 'Tu sesión anterior ya no es válida');
+        setGameState(null);
+        setPrivateState(null);
+      }
+    });
+
+    socket.on('timer_settings_updated', (data) => {
+      console.log('⏱️ Configuración de temporizador recibida:', data);
+      if (data?.discussion_duration) {
+        useGameStore.getState().setDiscussionDuration(data.discussion_duration);
+        addLog(`Tiempo de debate: ${Math.round(data.discussion_duration / 60)} min`);
+      }
+    });
+
     // Eventos de sala
     socket.on(SOCKET_EVENTS.ROOM_CREATED, (data) => {
       console.log('🏠 Sala creada:', data.room_code);
-      console.log('🔍 Datos completos del evento room_created:', data);
-      console.log('🔍 Estado actual del store antes de room_created:', {
-        gameState: useGameStore.getState().gameState,
-        privateState: useGameStore.getState().privateState
-      });
+      saveSession(data.room_code, useGameStore.getState().playerName, null, true);
+      setRoomCode(data.room_code);
       addLog(`Sala ${data.room_code} creada`);
-      
-      // 🔧 NUEVO: Aguardar los eventos private_update y game_update que deberían llegar después
       console.log('⏳ Esperando eventos game_update y private_update...');
     });
 
     socket.on(SOCKET_EVENTS.ROOM_JOINED, (data) => {
       console.log('🚪 Te uniste a la sala:', data.room_code);
+      saveSession(data.room_code, useGameStore.getState().playerName);
+      setRoomCode(data.room_code);
       addLog(`Te uniste a la sala ${data.room_code}`);
     });
 
     socket.on(SOCKET_EVENTS.ROOM_LEFT, () => {
       console.log('👋 Saliste de la sala');
+      clearSession();
       addLog('Saliste de la sala');
       setGameState(null);
       setPrivateState(null);
@@ -394,9 +439,23 @@ function App() {
       setError(data.message);
     });
 
+    // Escuchar cuando el usuario vuelve a la pestaña del navegador (ej: tras WhatsApp o llamada)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('📱 App volvió a primer plano en navegador');
+        if (socket.connected) {
+          tryAutoReconnect();
+        } else {
+          socket.connect();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Cleanup SOLO al desmontar el componente App
     return () => {
       console.log('🧹 CLEANUP App - Desmontando aplicación');
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
         console.log('🧹 Heartbeat interval limpiado');

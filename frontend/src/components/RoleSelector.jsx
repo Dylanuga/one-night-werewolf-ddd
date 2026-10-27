@@ -13,7 +13,9 @@ export const RoleSelector = ({ onBack }) => {
     startGame,
     setShowRoleSelector,
     selectedRoles: storeSelectedRoles,
-    playerName
+    playerName,
+    discussionDuration,
+    setDiscussionTimer
   } = useGameStore();
 
   const players = gameState?.players || [];
@@ -21,6 +23,7 @@ export const RoleSelector = ({ onBack }) => {
   const requiredRoles = playerCount + 3; // jugadores + 3 cartas del centro
   const hostPlayer = players.find(p => p.is_host);
   const isHost = hostPlayer && hostPlayer.name === playerName;
+  const currentDuration = gameState?.discussion_duration || discussionDuration || 300;
 
   const [selectedRoles, setSelectedRoles] = useState(() => {
     if (storeSelectedRoles && Object.keys(storeSelectedRoles).length > 0) {
@@ -87,10 +90,10 @@ export const RoleSelector = ({ onBack }) => {
     // Solo enviar si es diferente al último enviado
     if (rolesString !== lastSentRoles) {
       console.log('📤 ENVIANDO ROLES AL SERVIDOR:', rolesArray);
-      setRoles(rolesArray);
+      setRoles(rolesArray, currentDuration);
       setLastSentRoles(rolesString);
     }
-  }, [setRoles, lastSentRoles]);
+  }, [setRoles, lastSentRoles, currentDuration]);
 
   // Mejorado: Debouncer para enviar cambios al servidor
   useEffect(() => {
@@ -319,11 +322,50 @@ export const RoleSelector = ({ onBack }) => {
           )}
         </div>
 
-        {error && (
-          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
-            <p className="text-red-200">{error}</p>
+        {/* Selector de tiempo de debate */}
+        <div className="bg-slate-800 rounded-lg p-5 mb-6 border border-amber-500/30 shadow-md">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-white font-bold text-lg mb-1">
+                <Clock size={20} className="text-amber-400" />
+                <span>Tiempo de Debate Diurno</span>
+              </div>
+              <p className="text-slate-400 text-sm">
+                Al llegar a 0, la votación se iniciará y concluirá automáticamente con los votos que haya.
+              </p>
+            </div>
+
+            {isHost ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { label: '2 min', value: 120 },
+                  { label: '5 min (Recomendado)', value: 300 },
+                  { label: '10 min', value: 600 }
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setDiscussionTimer(opt.value);
+                    }}
+                    className={`px-3 py-2 rounded-lg font-medium text-sm transition-all border ${
+                      currentDuration === opt.value
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold shadow-md shadow-amber-500/10'
+                        : 'bg-slate-700/60 border-slate-600 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-slate-700/60 border border-amber-500/30 px-4 py-2 rounded-lg text-amber-300 text-sm font-medium">
+                <Clock size={16} />
+                <span>{Math.round(currentDuration / 60)} min seleccionados por el host</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* 🆕 NUEVO: Instrucciones diferentes según el rol */}
         <div className="bg-slate-800 rounded-lg p-6 mb-6 border border-slate-700">
