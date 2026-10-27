@@ -5,28 +5,36 @@ echo "🐺 ========================================="
 echo "    INICIANDO ONE NIGHT WEREWOLF (DDD)     "
 echo "========================================="
 
-# 1. Asegurar directorio del proyecto
 cd "$(dirname "$0")"
 
-# 2. Intentar actualizar a develop más reciente
-echo "📦 Actualizando a la última versión de develop..."
+# 1. Traer la última versión de develop limpiamente
+echo "📦 Actualizando a la última versión de GitHub..."
+git fetch origin develop
 git checkout develop
-git pull origin develop || echo "⚠️ Continuamos con la versión local si no hay conexión a GitHub."
+git reset --hard origin/develop
 
-# 3. Asegurar configuración para HTTPS con Cloudflare
+echo "📌 Versión actual desplegada:"
+git log -n 1 --oneline
+
+# 2. Configurar variables para HTTPS
 echo "VITE_SOCKET_URL=" > .env
 
-# 4. Levantar contenedores del juego
-echo "🚀 Reconstruyendo y arrancando backend y frontend..."
+# 3. Reconstruir los contenedores asegurando que no use caché vieja
+echo "🚀 Reconstruyendo backend y frontend (sin caché)..."
+docker compose build --no-cache
 docker compose down
-docker compose up -d --build
+docker compose up -d
 
-# 5. Reiniciar túnel de Cloudflare
-echo "🔒 Levantando túnel HTTPS de Cloudflare..."
-docker rm -f tunnel 2>/dev/null || true
-docker run -d --name tunnel --restart unless-stopped --network host cloudflare/cloudflared:latest tunnel --url http://localhost:80
+# 4. Mantener el túnel de Cloudflare si ya existe para NO cambiar la URL
+if docker ps --format '{{.Names}}' | grep -q '^tunnel$'; then
+    echo "🔒 Túnel HTTPS ya activo (manteniendo la misma URL sin cambios)..."
+else
+    echo "🔒 Levantando nuevo túnel HTTPS de Cloudflare..."
+    docker rm -f tunnel 2>/dev/null || true
+    docker run -d --name tunnel --restart unless-stopped --network host cloudflare/cloudflared:latest tunnel --url http://localhost:80
+fi
 
-# 6. Esperar a que el túnel devuelva la URL
+# 5. Obtener enlace HTTPS
 echo "⏳ Obteniendo enlace público..."
 URL=""
 for i in $(seq 1 15); do
@@ -40,7 +48,7 @@ done
 echo ""
 echo "================================================="
 if [ -n "$URL" ]; then
-    echo "🎉 ¡TODO LISTO! Comparte este enlace para jugar:"
+    echo "🎉 ¡TODO LISTO! Enlace de la partida:"
     echo ""
     echo "👉 $URL"
     echo ""
