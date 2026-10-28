@@ -165,6 +165,9 @@ def create_test_room():
         if isinstance(turn_duration, (int, float)) and 1 <= turn_duration <= 60:
             game_service.set_turn_duration(room_code, int(turn_duration))
             result['turn_duration'] = int(turn_duration)
+        else:
+            game_service.set_turn_duration(room_code, game_service.TURN_DURATION)
+            result['turn_duration'] = game_service.TURN_DURATION
         
         # Si auto_start está activado, iniciar el juego
         if auto_start:
@@ -384,6 +387,23 @@ def on_join_room(data):
                 if private_state:
                     emit('private_update', private_state)
                 
+                if game.phase.value == 'night_phase':
+                    current_turn = 'open_eyes' if getattr(game, 'open_eyes_active', False) else game.get_current_turn_role()
+                    if current_turn:
+                        now = time.time()
+                        duration = game.turn_duration or game_service._get_turn_duration(room_code)
+                        start_ts = game.turn_start_timestamp or now
+                        end_ts = game.turn_end_timestamp or (start_ts + duration)
+                        emit('turn_start', {
+                            'role': current_turn,
+                            'phase': f'Fase: {current_turn}',
+                            'duration': duration,
+                            'timestamp': start_ts,
+                            'end_timestamp': end_ts,
+                            'server_time': now,
+                            'remaining': max(0.0, end_ts - now)
+                        })
+
                 # Forzar actualización del estado público
                 game_service._emit_game_update(room_code)
             else:
@@ -470,10 +490,22 @@ def on_reconnect_session(data):
 
         # 4. Sincronizar datos de fase nocturna si corresponde
         if game.phase.value == 'night_phase':
-            current_turn = game.get_current_turn_role()
+            current_turn = 'open_eyes' if getattr(game, 'open_eyes_active', False) else game.get_current_turn_role()
             if current_turn:
-                emit('turn_start', {'role': current_turn, 'duration': game_service._get_turn_duration(room_code)})
-                if player.original_role == current_turn:
+                now = time.time()
+                duration = game.turn_duration or game_service._get_turn_duration(room_code)
+                start_ts = game.turn_start_timestamp or now
+                end_ts = game.turn_end_timestamp or (start_ts + duration)
+                emit('turn_start', {
+                    'role': current_turn,
+                    'phase': f'Fase: {current_turn}',
+                    'duration': duration,
+                    'timestamp': start_ts,
+                    'end_timestamp': end_ts,
+                    'server_time': now,
+                    'remaining': max(0.0, end_ts - now)
+                })
+                if player.original_role == current_turn and current_turn != 'open_eyes':
                     action_data = game.get_night_action_data_for_player(target_pid)
                     if action_data:
                         emit('night_action', action_data)
@@ -817,6 +849,7 @@ def on_night_action(data):
         result = game_service.execute_night_action(room_code, player_id, action_data)
         if not result.get('success'):
             emit('error', {'message': result.get('message', 'Acción no válida')})
+        return result
         
     except Exception as e:
         print(f"Error ejecutando acción nocturna: {e}")
@@ -1009,21 +1042,16 @@ def advance_test_turn():
         if game.phase.value != 'night_phase':
             return {'error': f'Solo se puede avanzar turno en night_phase, actual: {game.phase.value}'}, 400
         
-        # Avanzar el turno manualmente
-        advanced = game.advance_night_turn()
+        # Avanzar el turno manualmente usando el servicio (cancela y reinicia el timer)
+        advanced = game_service.advance_turn(room_code)
         if advanced:
-            room_repository.save_game(room_code, game)
-            
+            game = room_repository.get_game(room_code)
             result = {
                 'message': 'Turno avanzado exitosamente',
-                'new_phase': game.phase.value,
-                'current_turn_role': game.get_current_turn_role(),
-                'night_finished': game.phase.value == 'day_phase'
+                'new_phase': game.phase.value if game else 'unknown',
+                'current_turn_role': game.get_current_turn_role() if game else None,
+                'night_finished': (game.phase.value == 'day_phase') if game else False
             }
-            
-            # Emitir actualización
-            game_service._emit_game_update(room_code)
-            
             return result, 200
         else:
             return {'error': 'No se pudo avanzar el turno'}, 400

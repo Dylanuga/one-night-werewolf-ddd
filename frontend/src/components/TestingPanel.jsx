@@ -18,7 +18,7 @@ const TestingPanel = ({ onBack }) => {
   ]);
   const [customCenterRoles, setCustomCenterRoles] = useState(['seer', 'robber', 'villager']);
   const [customAutoStart, setCustomAutoStart] = useState(true);
-  const [testTurnDuration, setTestTurnDuration] = useState(15);
+  const [testTurnDuration, setTestTurnDuration] = useState(12);
   const [assignMode, setAssignMode] = useState('player');
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const [selectedCenterIndex, setSelectedCenterIndex] = useState(0);

@@ -1,5 +1,5 @@
 // src/components/VotingPhase.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle2, AlertTriangle, Users } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 
@@ -26,9 +26,19 @@ export const VotingPhase = () => {
   const isHost = host?.name && playerName === host.name;
   const alreadyRevealed = Boolean(revealData) || gameState?.phase === 'game_end';
 
-  // Temporizador de votación
+  // Temporizador de votación sincronizado con el servidor (inmune a desfase de reloj)
   const votingEndTimestamp = gameState?.voting_end_timestamp;
+  const votingRemaining = gameState?.voting_remaining;
+  const serverTime = gameState?.server_time;
+  const endTimeRef = useRef(null);
+
   const [timeLeft, setTimeLeft] = useState(() => {
+    if (typeof votingRemaining === 'number') {
+      return Math.max(0, Math.round(votingRemaining));
+    }
+    if (votingEndTimestamp && serverTime) {
+      return Math.max(0, Math.round(votingEndTimestamp - serverTime));
+    }
     if (votingEndTimestamp) {
       return Math.max(0, Math.round(votingEndTimestamp - Date.now() / 1000));
     }
@@ -36,17 +46,32 @@ export const VotingPhase = () => {
   });
 
   useEffect(() => {
-    if (!votingEndTimestamp) return;
+    if (!votingEndTimestamp && typeof votingRemaining !== 'number') return;
+
+    let remSec = 60;
+    if (typeof votingRemaining === 'number') {
+      remSec = Math.max(0, votingRemaining);
+    } else if (votingEndTimestamp && serverTime) {
+      remSec = Math.max(0, votingEndTimestamp - serverTime);
+    } else if (votingEndTimestamp) {
+      remSec = Math.max(0, votingEndTimestamp - Date.now() / 1000);
+    }
+
+    const candidateEnd = Date.now() + remSec * 1000;
+    if (!endTimeRef.current || Math.abs(candidateEnd - endTimeRef.current) > 1000) {
+      endTimeRef.current = candidateEnd;
+    }
 
     const updateTimer = () => {
-      const remaining = Math.max(0, Math.round(votingEndTimestamp - Date.now() / 1000));
+      if (!endTimeRef.current) return;
+      const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
       setTimeLeft(remaining);
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+    const interval = setInterval(updateTimer, 250);
     return () => clearInterval(interval);
-  }, [votingEndTimestamp]);
+  }, [votingEndTimestamp, votingRemaining, serverTime]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

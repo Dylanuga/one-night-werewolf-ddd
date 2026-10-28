@@ -249,6 +249,8 @@ class GameService:
             if result.get('success'):
                 self.room_repository.save_game(room_code, game)
                 self._emit_to_player(room_code, player_id, 'action_result', result)
+                private_state = game.get_private_state_for_player(player_id)
+                self._emit_to_player(room_code, player_id, 'private_update', private_state)
             
             return result
         except Exception as e:
@@ -334,6 +336,9 @@ class GameService:
             if not game:
                 return
 
+            game.open_eyes_active = True
+            self.room_repository.save_game(room_code, game)
+
             # Emitir mensaje "Abrid los ojos todos" por 6 segundos
             self._emit_turn_start(room_code, 'open_eyes', duration_override=6)
 
@@ -342,6 +347,7 @@ class GameService:
                     game = self.room_repository.get_game(room_code)
                     if not game:
                         return
+                    game.open_eyes_active = False
                     game.phase = GamePhase.DAY_PHASE
                     game.night_finished = False
                     self.room_repository.save_game(room_code, game)
@@ -350,7 +356,9 @@ class GameService:
                     print(f"Error en finish_transition: {e}")
 
             def transition_task():
-                self.sleep_fn(6)
+                game_now = self.room_repository.get_game(room_code)
+                wait_sec = max(0.0, game_now.turn_end_timestamp - time.time()) if (game_now and game_now.turn_end_timestamp) else 6
+                self.sleep_fn(wait_sec)
                 finish_transition()
             self.start_background_task(transition_task)
         except Exception as e:
@@ -580,15 +588,23 @@ class GameService:
             if not game:
                 return
             
-            # Crear timestamp único para este turno
+            # Crear timestamp único para este turno y persistirlo en el juego
             turn_timestamp = time.time()
+            duration = duration_override if duration_override is not None else self._get_turn_duration(room_code)
+            game.turn_duration = duration
+            game.turn_start_timestamp = turn_timestamp
+            game.turn_end_timestamp = turn_timestamp + duration
+            self.room_repository.save_game(room_code, game)
             
             # Emitir a toda la sala que comenzó el turno de un rol
             turn_data = {
                 'role': role,
                 'phase': f'Fase: {role}',
-                'duration': duration_override if duration_override is not None else self._get_turn_duration(room_code),
-                'timestamp': turn_timestamp
+                'duration': duration,
+                'timestamp': turn_timestamp,
+                'end_timestamp': game.turn_end_timestamp,
+                'server_time': turn_timestamp,
+                'remaining': float(duration)
             }
             
             # 1. Emitir turn_start a toda la sala (para UI)
@@ -604,10 +620,13 @@ class GameService:
                         
                         # CRÍTICO: Añadir el timestamp del turno para detectar cambios
                         private_state['turn_timestamp'] = turn_timestamp
+                        private_state['turn_end_timestamp'] = game.turn_end_timestamp
+                        private_state['turn_duration'] = duration
+                        private_state['turn_remaining'] = max(0.0, game.turn_end_timestamp - time.time())
                         private_state['current_turn_role'] = role
                         
                         # Determinar si es el turno de este jugador (basado en rol original)
-                        private_state['is_your_turn'] = (player.original_role == role)
+                        private_state['is_your_turn'] = (player.original_role == role) and (role != 'open_eyes')
                         
                         # Si es su turno, añadir datos de night_action
                         if private_state['is_your_turn']:
@@ -764,8 +783,13 @@ class GameService:
             
             def timer_task(expected_token: int):
                 try:
+                    game_now = self.room_repository.get_game(room_code)
+                    if game_now and game_now.turn_end_timestamp:
+                        wait_sec = max(0.0, game_now.turn_end_timestamp - time.time())
+                    else:
+                        wait_sec = self._get_turn_duration(room_code)
                     # Sleep no bloqueante compatible con eventlet/Socket.IO
-                    self.sleep_fn(self._get_turn_duration(room_code))
+                    self.sleep_fn(wait_sec)
                     
                     # Si hubo un cancel o un nuevo timer, abortar
                     if self.turn_timer_tokens.get(room_code) != expected_token:
@@ -816,6 +840,22 @@ class GameService:
             # Registrar el turno actual antes de avanzar (para debugging)
             current_role_before = game.get_current_turn_role()
             print(f"[TIMER] fin sala {room_code} rol={current_role_before}")
+
+            # ✅ Auto-acción del lobo solitario si no hizo click antes de expirar el turno
+            if current_role_before == 'werewolf':
+                auto_result = game.execute_werewolf_auto_action()
+                if auto_result.get('success'):
+                    werewolf_id = auto_result.get('werewolf_player_id')
+                    if werewolf_id:
+                        self._emit_to_player(room_code, werewolf_id, 'action_result', auto_result)
+
+            # ✅ Auto-acción de la vidente si no hizo click antes de expirar el turno
+            if current_role_before == 'seer':
+                auto_result = game.execute_seer_auto_action()
+                if auto_result.get('success'):
+                    seer_id = auto_result.get('seer_player_id')
+                    if seer_id:
+                        self._emit_to_player(room_code, seer_id, 'action_result', auto_result)
 
             # ✅ Auto-acción del ladrón si no hizo click antes de expirar el turno
             if current_role_before == 'robber':

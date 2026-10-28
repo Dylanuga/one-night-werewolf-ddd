@@ -1,5 +1,5 @@
 // src/components/RoleSelector.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Crown, Play, ArrowLeft, Plus, Minus, Eye, Users, Clock, CheckCircle } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { ROLES } from '../utils/constants';
@@ -34,6 +34,7 @@ export const RoleSelector = ({ onBack }) => {
   const [isStarting, setIsStarting] = useState(false);
   // 🆕 NUEVO: Estado para controlar cuándo enviar al servidor
   const [lastSentRoles, setLastSentRoles] = useState('');
+  const isLeavingRef = useRef(false);
 
   // Calcular total de roles seleccionados
   const totalSelected = Object.values(selectedRoles).reduce((sum, count) => sum + count, 0);
@@ -97,10 +98,12 @@ export const RoleSelector = ({ onBack }) => {
 
   // Mejorado: Debouncer para enviar cambios al servidor
   useEffect(() => {
-    if (!isHost) return;
+    if (!isHost || isLeavingRef.current) return;
     
     const timer = setTimeout(() => {
-      sendRolesToServer(selectedRoles);
+      if (!isLeavingRef.current) {
+        sendRolesToServer(selectedRoles);
+      }
     }, 500); // Sincronizar tras 500ms de inactividad al hacer click
     
     return () => clearTimeout(timer);
@@ -471,11 +474,14 @@ export const RoleSelector = ({ onBack }) => {
               {isHost && (
                 <>
                   <button
-                    onClick={onBack}
+                    onClick={() => {
+                      isLeavingRef.current = true;
+                      if (onBack) onBack();
+                    }}
                     className="bg-slate-600 hover:bg-slate-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <ArrowLeft size={20} />
-                    Volver
+                    Volver al Lobby
                   </button>
                   
                   <button

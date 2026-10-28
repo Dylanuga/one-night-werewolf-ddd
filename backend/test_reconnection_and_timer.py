@@ -102,8 +102,52 @@ def test_voting_with_disconnected_or_missing_votes():
     assert game.eliminated_ids in (["p1", "p2"], ["p2", "p1"])
     print("   ✅ Votación con desconectados y parciales funciona perfectamente")
 
+def test_auto_actions_and_reset_to_lobby():
+    print("\n🧪 TEST 4: Acciones automáticas aleatorias (Vidente y Lobo Solitario) y Volver al Lobby...")
+    game = GameLogic("AUTO")
+    game.add_player("p1", "HostSeer", "s1", is_host=True)
+    game.add_player("p2", "LoneWolf", "s2")
+    game.add_player("p3", "VillagerP", "s3")
+
+    roles = ['seer', 'werewolf', 'villager', 'robber', 'troublemaker', 'drunk']
+    assert game.set_selected_roles(roles)
+    game.enable_test_mode({'players': ['seer', 'werewolf', 'villager'], 'center': ['robber', 'troublemaker', 'drunk']})
+    assert game.start_game()
+
+    # Turno 0: Lobo solitario no hace nada -> auto acción
+    assert game.get_current_turn_role() == "werewolf"
+    ww_auto = game.execute_werewolf_auto_action()
+    assert ww_auto and ww_auto.get("success") and ww_auto.get("auto") is True
+    assert ww_auto.get("werewolf_player_id") == "p2"
+    assert ww_auto.get("center_position") in (0, 1, 2)
+    assert ww_auto.get("center_role") in ("robber", "troublemaker", "drunk")
+    p2_priv = game.get_private_state_for_player("p2")
+    assert p2_priv.get("werewolf_last_center") is not None
+    print("   ✅ Acción aleatoria de Lobo Solitario ejecutada y visible en estado privado")
+
+    # Turno 1: Vidente no hace nada -> auto acción
+    game.advance_night_turn()
+    assert game.get_current_turn_role() == "seer"
+    seer_auto = game.execute_seer_auto_action()
+    assert seer_auto and seer_auto.get("success") and seer_auto.get("auto") is True
+    assert seer_auto.get("seer_player_id") == "p1"
+    assert "seen_player" in seer_auto or "seen_center" in seer_auto
+    p1_priv = game.get_private_state_for_player("p1")
+    assert p1_priv.get("seer_last_result") is not None
+    print("   ✅ Acción aleatoria de Vidente ejecutada y visible en estado privado")
+
+    # Probar reset_game desde GAME_END a ROLE_SELECTION y luego a LOBBY (botón Volver al Lobby)
+    game.phase = GamePhase.GAME_END
+    assert game.reset_game("role_selection")
+    assert game.phase == GamePhase.ROLE_SELECTION
+    assert game.reset_game("lobby")
+    assert game.phase == GamePhase.LOBBY
+    assert game.selected_roles == []
+    print("   ✅ Reset de ROLE_SELECTION a LOBBY ('Volver al Lobby') funciona correctamente")
+
 if __name__ == '__main__':
     test_reconnection_during_phases()
     test_timer_configuration()
     test_voting_with_disconnected_or_missing_votes()
+    test_auto_actions_and_reset_to_lobby()
     print("\n🎉 TODOS LOS TESTS DE RECONEXIÓN Y TEMPORIZADOR PASARON CON ÉXITO")

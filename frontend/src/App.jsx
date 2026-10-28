@@ -33,6 +33,8 @@ function App() {
     setMyVote,
     setError,
     handleGameReset,
+    resetGame,
+    clearNightNotes,
     addLog,
     setSelectedRoles,
     setPlayerName,
@@ -273,6 +275,8 @@ function App() {
     socket.on(SOCKET_EVENTS.GAME_STARTED, (data) => {
       console.log('🎮 Juego iniciado:', data);
       setShowRoleSelector(false);
+      setActionResult(null);
+      clearNightNotes();
       console.log('🔧 Estado actual antes de GAME_STARTED:', {
         socketConnected: socket.connected,
         gameState: useGameStore.getState().gameState,
@@ -365,13 +369,19 @@ function App() {
       // Forzar actualización de privateState para mayor robustez
       const currentPrivateState = useGameStore.getState().privateState;
       if (currentPrivateState) {
-        const isYourTurn = currentPrivateState.your_role === data.role;
+        const initialRole = currentPrivateState.your_original_role || currentPrivateState.your_role;
+        const isYourTurn = data.role !== 'open_eyes' && initialRole === data.role;
         
         // Actualizar privateState con el nuevo turno y estado is_your_turn
         const updatedPrivateState = {
           ...currentPrivateState,
           current_turn_role: data.role,
-          is_your_turn: isYourTurn
+          is_your_turn: isYourTurn,
+          ...(data.timestamp !== undefined ? { turn_timestamp: data.timestamp } : {}),
+          ...(data.end_timestamp !== undefined ? { turn_end_timestamp: data.end_timestamp } : {}),
+          ...(data.duration !== undefined ? { turn_duration: data.duration } : {}),
+          ...(data.remaining !== undefined ? { turn_remaining: data.remaining } : {}),
+          ...(data.server_time !== undefined ? { server_time: data.server_time } : {})
         };
         
         console.log('🔄 Actualizando privateState con nuevo turno:', {
@@ -507,6 +517,7 @@ function App() {
 
   const handleBackToLobby = () => {
     setShowRoleSelector(false);
+    resetGame('lobby');
   };
 
   // 🔧 NUEVA FUNCIÓN: Determinar qué pantalla mostrar según usuario y fase

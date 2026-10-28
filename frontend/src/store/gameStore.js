@@ -1,5 +1,6 @@
 // src/store/gameStore.js
 import { create } from 'zustand';
+import { ROLES } from '../utils/constants';
 
 // Funciones de persistencia de sesión en navegador móvil/escritorio
 export const getStoredSession = () => {
@@ -230,62 +231,44 @@ export const useGameStore = create((set, get) => ({
 
     // ✅ ANTI-DUPLICADOS: Verificación profunda por contenido
     const current = get().privateState;
-    if (current) {
-      // Comparar todos los campos relevantes
-      const criticalFields = [
-        'phase', 'current_turn_role', 'is_your_turn', 'your_role',
-        'room_code', 'player_count', 'selected_roles_count',
-        'turn_timestamp'  // ✅ CRÍTICO: Detectar cambios de turno por timestamp
-      ];
-      
-      // 🔍 DEBUG: Log detallado de comparación campo por campo
-      console.log('🔍 DEBUG setPrivateState - COMPARACIÓN DETALLADA:');
-      criticalFields.forEach(field => {
-        const currentVal = current[field];
-        const newVal = state[field];
-        const changed = currentVal !== newVal;
-        console.log(`  📝 ${field}: "${currentVal}" → "${newVal}" (cambió: ${changed})`);
-      });
-      
-      const hasBasicChanges = criticalFields.some(field => current[field] !== state[field]);
-      
-      // ✅ ESPECÍFICO: Detectar cambios de turno por timestamp incluso si otros campos son iguales
-      const isTurnChange = current.turn_timestamp !== state.turn_timestamp;
-      if (isTurnChange) {
-        console.log('🔄 CAMBIO DE TURNO DETECTADO por timestamp:', {
-          anterior: current.turn_timestamp,
-          nuevo: state.turn_timestamp,
-          rol: state.current_turn_role
-        });
-      }
-      
-      // Comparar objetos complejos por referencia y contenido básico
-      const hasActionChanges = current.night_action !== state.night_action || 
-        (current.night_action && state.night_action && 
-         (current.night_action.type !== state.night_action.type ||
-          current.night_action.message !== state.night_action.message));
-      
-      const hasPlayerChanges = current.players?.length !== state.players?.length;
-      
-      console.log('🔍 DEBUG setPrivateState - RESUMEN CAMBIOS:', {
-        hasBasicChanges,
-        hasActionChanges,
-        hasPlayerChanges,
-        isTurnChange,
-        totalChanges: hasBasicChanges || hasActionChanges || hasPlayerChanges || isTurnChange
-      });
-      
-      if (!hasBasicChanges && !hasActionChanges && !hasPlayerChanges && !isTurnChange) {
-        console.log('🔄 setPrivateState: Sin cambios detectados, ignorando');
-        return;
-      }
+    if (current && deepEqual(current, state)) {
+      console.log('🔄 setPrivateState: Sin cambios detectados, ignorando');
+      return;
     }
 
     // ✅ CRÍTICO: Actualización simple sin timestamps aleatorios
     set(prevState => {
+      const updatedNotes = { ...(prevState.nightNotes || {}) };
+
+      if (state.seer_last_result) {
+        const sr = state.seer_last_result;
+        const autoPrefix = sr.auto ? '🎲 (Aleatoria) ' : '';
+        if (sr.seen_player) {
+          const roleName = ROLES[sr.seen_player.role]?.name || sr.seen_player.role;
+          updatedNotes.seer = `${autoPrefix}Viste el rol de ${sr.seen_player.name || sr.seen_player.player_id}: ${roleName}`;
+        } else if (Array.isArray(sr.seen_center)) {
+          const positions = ['Izquierda', 'Centro', 'Derecha'];
+          const formatted = sr.seen_center
+            .map(c => `${positions[c.position] || `Pos ${c.position + 1}`}: ${ROLES[c.role]?.name || c.role}`)
+            .join(' | ');
+          updatedNotes.seer = `${autoPrefix}Cartas del centro vistas: ${formatted}`;
+        }
+      }
+
+      if (state.werewolf_last_center) {
+        const wc = state.werewolf_last_center;
+        const autoPrefix = wc.auto ? '🎲 (Aleatoria) ' : '';
+        const pos = wc.center_position ?? wc.position ?? 0;
+        const role = wc.center_role ?? wc.role;
+        const posLabel = ['Izquierda', 'Centro', 'Derecha'][pos] || `Posición ${pos + 1}`;
+        const roleName = ROLES[role]?.name || role;
+        updatedNotes.werewolf = `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+      }
+
       const newState = {
         ...prevState,
-        privateState: state // Usar el estado tal como viene del servidor
+        privateState: state, // Usar el estado tal como viene del servidor
+        nightNotes: updatedNotes
       };
       
       console.log('🔍 DEBUG setPrivateState - ESTADO ANTES:', prevState.privateState);
@@ -298,12 +281,14 @@ export const useGameStore = create((set, get) => ({
   },
   
   setCurrentTurnDisplay: (turn) => {
-    // ✅ FIX CRÍTICO: Solo comparar role y phase, NO timestamp para permitir actualizaciones
     const current = get().currentTurnDisplay;
     if (current && turn &&
         current.role === turn.role && 
         current.phase === turn.phase &&
-        current.duration === turn.duration) {
+        current.duration === turn.duration &&
+        current.timestamp === turn.timestamp &&
+        current.end_timestamp === turn.end_timestamp &&
+        current.remaining === turn.remaining) {
       console.log('🔄 setCurrentTurnDisplay: Sin cambios relevantes, ignorando');
       return;
     }
@@ -320,16 +305,11 @@ export const useGameStore = create((set, get) => ({
       timestamp: Date.now()
     });
 
-    // ✅ FIX: Evitar set si no hay cambios reales usando comparación profunda
     const currentResult = get().actionResult;
     if (currentResult && result) {
-      // Comparar campos críticos en lugar de JSON.stringify completo
-      const criticalFields = ['type', 'message', 'success', 'data'];
-      const hasChanges = criticalFields.some(field => 
-        currentResult[field] !== result[field]
-      );
-      
-      if (!hasChanges) {
+      const { _timestamp: _t1, ...cleanCurrent } = currentResult;
+      const { _timestamp: _t2, ...cleanNext } = result;
+      if (deepEqual(cleanCurrent, cleanNext)) {
         console.log('🔄 setActionResult: Sin cambios detectados, ignorando');
         return;
       }
@@ -338,22 +318,32 @@ export const useGameStore = create((set, get) => ({
       return;
     }
     
-    // ✅ CRÍTICO: Actualización inmutable para forzar re-render
+    // ✅ CRÍTICO: Actualización inmutable para forzar re-render y sincronizar notas nocturnas
     set(state => {
+      const updatedNotes = { ...(state.nightNotes || {}) };
+      if (result) {
+        const autoPrefix = result.auto ? '🎲 (Aleatoria) ' : '';
+        if (result.seen_player) {
+          const roleName = ROLES[result.seen_player.role]?.name || result.seen_player.role;
+          updatedNotes.seer = `${autoPrefix}Viste el rol de ${result.seen_player.name || result.seen_player.player_id}: ${roleName}`;
+        } else if (Array.isArray(result.seen_center)) {
+          const positions = ['Izquierda', 'Centro', 'Derecha'];
+          const formatted = result.seen_center
+            .map(c => `${positions[c.position] || `Pos ${c.position + 1}`}: ${ROLES[c.role]?.name || c.role}`)
+            .join(' | ');
+          updatedNotes.seer = `${autoPrefix}Cartas del centro vistas: ${formatted}`;
+        } else if (result.center_role !== undefined && result.center_position !== undefined) {
+          const posLabel = ['Izquierda', 'Centro', 'Derecha'][result.center_position] || `Posición ${result.center_position + 1}`;
+          const roleName = ROLES[result.center_role]?.name || result.center_role;
+          updatedNotes.werewolf = `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+        }
+      }
+
       const newState = {
         ...state,
-        actionResult: result ? { ...result, _timestamp: Date.now() } : null
+        actionResult: result ? { ...result, _timestamp: Date.now() } : null,
+        nightNotes: updatedNotes
       };
-      
-      console.log('🔍 DEBUG setActionResult - ESTADO ANTES:', {
-        actionResult: state.actionResult,
-        optimisticState: state.optimisticState
-      });
-      
-      console.log('🔍 DEBUG setActionResult - ESTADO DESPUÉS:', {
-        actionResult: newState.actionResult,
-        optimisticState: newState.optimisticState
-      });
       
       return newState;
     });
@@ -369,15 +359,6 @@ export const useGameStore = create((set, get) => ({
       nuevoActionResult: get().actionResult,
       estadoOptimista: get().optimisticState
     });
-    
-    // Auto-limpiar después de 3 segundos con verificación
-    setTimeout(() => {
-      const current = get().actionResult;
-      if (current === result || (current && current._timestamp === result?._timestamp)) {
-        console.log('🧹 Auto-limpiando actionResult tras 3 segundos');
-        set(state => ({ ...state, actionResult: null }));
-      }
-    }, 3000);
   },
 
   setRevealData: (data) => {
@@ -824,8 +805,18 @@ export const useGameStore = create((set, get) => ({
   },
 
   resetGame: (toPhase) => {
-    const { emitEvent } = get();
-    set({ showRoleSelector: false });
+    const { emitEvent, gameState, privateState } = get();
+    const updates = { showRoleSelector: false };
+    if (toPhase === 'lobby') {
+      updates.selectedRoles = {};
+      if (gameState) {
+        updates.gameState = { ...gameState, phase: 'lobby', selected_roles: [], selected_roles_count: 0 };
+      }
+      if (privateState) {
+        updates.privateState = { ...privateState, phase: 'lobby', selected_roles: [], selected_roles_count: 0 };
+      }
+    }
+    set(updates);
     return emitEvent('reset_game', { to_phase: toPhase });
   },
 

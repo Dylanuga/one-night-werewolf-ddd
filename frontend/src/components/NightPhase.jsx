@@ -20,13 +20,12 @@ export const NightPhase = React.memo(() => {
   const {
     gameState,
     privateState,
+    currentTurnDisplay: storeTurnDisplay,
     getCurrentTurnRole,
-    getCurrentTurnDisplay,
     isMyTurn,
     getNightAction,
     getEffectiveActionResult,
-    nightNotes,
-    clearNightNotes
+    nightNotes
   } = useGameStore();
 
   // ✅ NUEVA ARQUITECTURA: Datos desde privateState con turn_timestamp
@@ -37,23 +36,35 @@ export const NightPhase = React.memo(() => {
   const nightActionData = getNightAction();
   const actionResult = getEffectiveActionResult();
   
-  // ✅ CRÍTICO: Crear currentTurn desde privateState para PhaseTimer
+  // ✅ CRÍTICO: Crear currentTurn unificado desde storeTurnDisplay y privateState para PhaseTimer
   const currentTurnDisplay = useMemo(() => {
-    const storeTurn = getCurrentTurnDisplay();
-    if (storeTurn?.timestamp) {
-      return storeTurn;
-    }
-    if (!privateState?.current_turn_role || !privateState?.turn_timestamp) {
-      return null;
-    }
-    
+    const role = privateState?.current_turn_role || storeTurnDisplay?.role;
+    if (!role) return null;
+
+    const timestamp = privateState?.turn_timestamp ?? storeTurnDisplay?.timestamp;
+    const endTimestamp = privateState?.turn_end_timestamp ?? storeTurnDisplay?.end_timestamp;
+    const duration = privateState?.turn_duration ?? storeTurnDisplay?.duration ?? TURN_DURATION;
+    const remaining = privateState?.turn_remaining ?? storeTurnDisplay?.remaining;
+    const serverTime = privateState?.server_time ?? storeTurnDisplay?.server_time;
+
     return {
-      role: privateState.current_turn_role,
-      phase: `Fase: ${ROLES[privateState.current_turn_role]?.name || privateState.current_turn_role}`,
-      timestamp: privateState.turn_timestamp,
-      duration: TURN_DURATION
+      role,
+      phase: storeTurnDisplay?.phase || `Fase: ${ROLES[role]?.name || role}`,
+      timestamp,
+      end_timestamp: endTimestamp,
+      duration,
+      remaining,
+      server_time: serverTime
     };
-  }, [privateState?.current_turn_role, privateState?.turn_timestamp, getCurrentTurnDisplay]);
+  }, [
+    storeTurnDisplay,
+    privateState?.current_turn_role,
+    privateState?.turn_timestamp,
+    privateState?.turn_end_timestamp,
+    privateState?.turn_duration,
+    privateState?.turn_remaining,
+    privateState?.server_time
+  ]);
 
   // ✅ OPTIMIZACIÓN: Un solo efecto simplificado para debugging
   useEffect(() => {
@@ -66,13 +77,7 @@ export const NightPhase = React.memo(() => {
       currentTurnDisplay,
       timestamp: Date.now()
     });
-  }, [currentTurnRole, isCurrentUserTurn, privateState?.turn_timestamp]);
-
-  useEffect(() => {
-    if (privateState?.phase !== 'night_phase') {
-      clearNightNotes();
-    }
-  }, [privateState?.phase, clearNightNotes]);
+  }, [currentTurnRole, isCurrentUserTurn, privateState?.turn_timestamp, currentTurnDisplay, nightActionData, actionResult]);
 
   // ✅ OPTIMIZACIÓN: Función de render estable sin useMemo/useCallback
   const renderCurrentPhaseInfo = () => {
@@ -174,7 +179,10 @@ export const NightPhase = React.memo(() => {
           />
         )}
 
-        <ActionResult actionResult={actionResult} />
+        {/* Mostrar resultado de acción cuando ya cambió el turno (ej. acción aleatoria al acabar el tiempo) */}
+        {!isCurrentUserTurn && actionResult && (
+          <ActionResult actionResult={actionResult} />
+        )}
       </div>
     );
   };
@@ -229,20 +237,30 @@ export const NightPhase = React.memo(() => {
             ) : (
               <p>⏱️ Esperando turno de: {ROLES[currentTurnRole]?.name || currentTurnRole}</p>
             )}
-            <p>🎭 Tu rol: {ROLES[myRole]?.name || myRole}</p>
+            <p>🎭 Tu rol inicial: {ROLES[myOriginalRole]?.name || myOriginalRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
-            {nightNotes?.werewolf && myRole === 'werewolf' && (
+            {nightNotes?.werewolf && myOriginalRole === 'werewolf' && (
               <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
             )}
-            {nightNotes?.mason && myRole === 'mason' && (
+            {nightNotes?.mason && myOriginalRole === 'mason' && (
               <p className="text-yellow-400 font-semibold">🔨 {nightNotes.mason}</p>
             )}
-            {nightNotes?.seer && myRole === 'seer' && (
+            {nightNotes?.seer && myOriginalRole === 'seer' && (
               <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
             )}
-            {privateState?.drunk_last_center !== undefined && myRole === 'drunk' && (
+            {privateState?.robber_last_target && myOriginalRole === 'robber' && (
               <p className="text-yellow-400 font-semibold">
-                🍺 Recuerda: elegiste la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'}.
+                🦹 {privateState.robber_last_target.auto ? '🎲 (Aleatoria) ' : ''}Robaste a {privateState.robber_last_target.name} y ahora eres {ROLES[privateState.robber_last_target.new_role || privateState.robber_last_target.role || myRole]?.name || privateState.robber_last_target.new_role || myRole}.
+              </p>
+            )}
+            {privateState?.troublemaker_last_swap && myOriginalRole === 'troublemaker' && (
+              <p className="text-yellow-400 font-semibold">
+                🎭 {privateState.troublemaker_last_swap.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste las cartas de {privateState.troublemaker_last_swap.a?.name || privateState.troublemaker_last_swap[0]?.name} y {privateState.troublemaker_last_swap.b?.name || privateState.troublemaker_last_swap[1]?.name}.
+              </p>
+            )}
+            {privateState?.drunk_last_center !== undefined && myOriginalRole === 'drunk' && (
+              <p className="text-yellow-400 font-semibold">
+                🍺 Recuerda: intercambiaste tu carta con la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'} del centro.
               </p>
             )}
             {/* Mostrar info del turno actual para todos */}

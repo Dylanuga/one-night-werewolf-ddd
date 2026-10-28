@@ -6,75 +6,78 @@ import { TURN_DURATION } from '../../utils/constants';
 export const PhaseTimer = ({ currentTurn, isMyTurn }) => {
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const timerRef = useRef(null);
-  const startTimeRef = useRef(null);
+  const endTimeRef = useRef(null);
+  const turnKeyRef = useRef(null);
 
-  // ✅ FIX CRÍTICO: Timer puramente visual sincronizado con el servidor
+  // ✅ FIX CRÍTICO: Timer visual sincronizado con el tiempo restante real del servidor (sin desfase de reloj)
   useEffect(() => {
-    console.log('⏰ PhaseTimer - Nuevo currentTurn:', {
-      currentTurn,
-      timestamp: currentTurn?.timestamp,
-      role: currentTurn?.role
-    });
+    if (!currentTurn?.role) {
+      setTimeLeft(TURN_DURATION);
+      return;
+    }
 
-    // Limpiar timer anterior
+    const duration = currentTurn?.duration ?? TURN_DURATION;
+    const turnKey = `${currentTurn.role}_${currentTurn.timestamp || 0}`;
+
+    // Calcular los segundos restantes reales según el servidor (inmune a desfase de reloj cliente/servidor)
+    let serverRemainingSec = duration;
+    if (typeof currentTurn.remaining === 'number') {
+      serverRemainingSec = Math.max(0, currentTurn.remaining);
+    } else if (currentTurn.end_timestamp && currentTurn.server_time) {
+      serverRemainingSec = Math.max(0, currentTurn.end_timestamp - currentTurn.server_time);
+    } else if (currentTurn.timestamp && currentTurn.server_time) {
+      const serverElapsed = Math.max(0, currentTurn.server_time - currentTurn.timestamp);
+      serverRemainingSec = Math.max(0, duration - serverElapsed);
+    } else if (currentTurn.timestamp) {
+      const clientElapsed = Math.max(0, (Date.now() - currentTurn.timestamp * 1000) / 1000);
+      serverRemainingSec = Math.max(0, Math.min(duration, duration - clientElapsed));
+    }
+
+    const candidateEndTime = Date.now() + serverRemainingSec * 1000;
+
+    // Si es un turno nuevo o hay una resincronización con diferencia > 800ms, actualizar deadline local
+    if (
+      turnKeyRef.current !== turnKey ||
+      !endTimeRef.current ||
+      Math.abs(candidateEndTime - endTimeRef.current) > 800
+    ) {
+      turnKeyRef.current = turnKey;
+      endTimeRef.current = candidateEndTime;
+    }
+
+    const updateRemaining = () => {
+      if (!endTimeRef.current) return;
+      const msLeft = Math.max(0, endTimeRef.current - Date.now());
+      const secLeft = Math.max(0, Math.round(msLeft / 1000));
+      setTimeLeft(secLeft);
+
+      if (msLeft <= 0 && timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+
+    updateRemaining();
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
-      timerRef.current = null;
     }
+    timerRef.current = setInterval(updateRemaining, 200);
 
-    if (currentTurn?.timestamp) {
-      const serverStartTime = currentTurn.timestamp * 1000;
-      startTimeRef.current = serverStartTime;
-      
-      // Calcular tiempo inicial basado en timestamp del servidor
-      const now = Date.now();
-      const elapsed = Math.floor((now - serverStartTime) / 1000);
-      const duration = currentTurn?.duration ?? TURN_DURATION;
-      const initialTime = Math.max(0, duration - elapsed);
-      
-      console.log('⏰ PhaseTimer - Calculando tiempo:', {
-        elapsed,
-        initialTime,
-        TURN_DURATION,
-        duration
-      });
-      
-      setTimeLeft(initialTime);
-
-      // Solo iniciar timer si queda tiempo
-      if (initialTime > 0) {
-        console.log('⏰ PhaseTimer - Iniciando countdown visual');
-        
-        timerRef.current = setInterval(() => {
-          const currentTime = Date.now();
-          const totalElapsed = Math.floor((currentTime - serverStartTime) / 1000);
-          const remaining = Math.max(0, duration - totalElapsed);
-          
-          setTimeLeft(remaining);
-          
-          if (remaining === 0) {
-            console.log('⏰ PhaseTimer - Countdown terminado');
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-        }, 1000);
-      } else {
-        console.log('⏰ PhaseTimer - Sin tiempo restante');
-        setTimeLeft(0);
-      }
-    } else {
-      console.log('⏰ PhaseTimer - Sin timestamp, reseteando');
-      setTimeLeft(currentTurn?.duration ?? TURN_DURATION);
-    }
-
-    // Cleanup
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [currentTurn?.timestamp, currentTurn?.role]); // ✅ Dependencias específicas
+  }, [
+    currentTurn?.role,
+    currentTurn?.timestamp,
+    currentTurn?.end_timestamp,
+    currentTurn?.duration,
+    currentTurn?.remaining,
+    currentTurn?.server_time
+  ]);
 
   // Aplicar clases de CSS según el tiempo restante
   const getTimerClasses = () => {
