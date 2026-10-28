@@ -841,44 +841,16 @@ class GameService:
             current_role_before = game.get_current_turn_role()
             print(f"[TIMER] fin sala {room_code} rol={current_role_before}")
 
-            # ✅ Auto-acción del lobo solitario si no hizo click antes de expirar el turno
-            if current_role_before == 'werewolf':
-                auto_result = game.execute_werewolf_auto_action()
+            # ✅ Ejecución polimórfica de auto-acción aleatoria si el rol activo no actuó a tiempo
+            if current_role_before:
+                auto_result = game.execute_current_turn_auto_action()
                 if auto_result.get('success'):
-                    werewolf_id = auto_result.get('werewolf_player_id')
-                    if werewolf_id:
-                        self._emit_to_player(room_code, werewolf_id, 'action_result', auto_result)
-
-            # ✅ Auto-acción de la vidente si no hizo click antes de expirar el turno
-            if current_role_before == 'seer':
-                auto_result = game.execute_seer_auto_action()
-                if auto_result.get('success'):
-                    seer_id = auto_result.get('seer_player_id')
-                    if seer_id:
-                        self._emit_to_player(room_code, seer_id, 'action_result', auto_result)
-
-            # ✅ Auto-acción del ladrón si no hizo click antes de expirar el turno
-            if current_role_before == 'robber':
-                auto_result = game.execute_robber_auto_action()
-                if auto_result.get('success'):
-                    robber_id = auto_result.get('robber_player_id')
-                    if robber_id:
-                        self._emit_to_player(room_code, robber_id, 'action_result', auto_result)
-            # ✅ Auto-acción de la alborotadora si no hizo click antes de expirar el turno
-            if current_role_before == 'troublemaker':
-                auto_result = game.execute_troublemaker_auto_action()
-                if auto_result.get('success'):
-                    troublemaker_id = auto_result.get('troublemaker_player_id')
-                    if troublemaker_id:
-                        self._emit_to_player(room_code, troublemaker_id, 'action_result', auto_result)
-            
-            # ✅ Auto-acción del borracho si no hizo click antes de expirar el turno
-            if current_role_before == 'drunk':
-                auto_result = game.execute_drunk_auto_action()
-                if auto_result.get('success'):
-                    drunk_id = auto_result.get('drunk_player_id')
-                    if drunk_id:
-                        self._emit_to_player(room_code, drunk_id, 'action_result', auto_result)
+                    target_pid = (
+                        auto_result.get('player_id')
+                        or auto_result.get(f'{current_role_before}_player_id')
+                    )
+                    if target_pid:
+                        self._emit_to_player(room_code, target_pid, 'action_result', auto_result)
             
             # Avanzar al siguiente turno
             advanced = game.advance_night_turn()

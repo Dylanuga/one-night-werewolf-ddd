@@ -299,38 +299,10 @@ function App() {
       });
       
       setGameState(data);
-      
-      setTimeout(() => {
-        console.log('[DEBUG] Estado final del store después de game_update:', {
-          gameState: useGameStore.getState().gameState,
-          privateState: useGameStore.getState().privateState
-        });
-      }, 0);
     });
 
     socket.on(SOCKET_EVENTS.PRIVATE_UPDATE, (data) => {
-      console.log('🔐 Actualización privada recibida:', data);
-      console.log('🔍 Timestamp del evento private_update:', Date.now());
-      console.log('🔍 Estado previo antes de aplicar private_update:', {
-        gameState: useGameStore.getState().gameState,
-        privateState: useGameStore.getState().privateState
-      });
-      
       setPrivateState(data);
-      // Si gameState es null (ej: tras crear sala o unirse), inicializarlo con privateState
-      if (!useGameStore.getState().gameState) {
-        console.log('🔧 gameState es null, inicializando con privateState');
-        setGameState(data);
-      }
-      
-      // Log extra para depuración
-      setTimeout(() => {
-        console.log('[DEBUG] Nuevo privateState aplicado:', data);
-        console.log('[DEBUG] Estado final del store después de private_update:', {
-          gameState: useGameStore.getState().gameState,
-          privateState: useGameStore.getState().privateState
-        });
-      }, 0);
     });
 
     socket.on(SOCKET_EVENTS.TURN_START, (data) => {

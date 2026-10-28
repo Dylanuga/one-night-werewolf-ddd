@@ -1,6 +1,40 @@
 // src/store/gameStore.js
 import { create } from 'zustand';
-import { ROLES } from '../utils/constants';
+import { ROLES, devLog } from '../utils/constants';
+
+const PUBLIC_STATE_KEYS = [
+  'room_code',
+  'phase',
+  'players',
+  'player_count',
+  'selected_roles_count',
+  'current_turn_role',
+  'votes',
+  'logs',
+  'server_time',
+  'turn_timestamp',
+  'turn_end_timestamp',
+  'turn_duration',
+  'turn_remaining',
+  'discussion_duration',
+  'discussion_end_timestamp',
+  'discussion_remaining',
+  'voting_duration',
+  'voting_end_timestamp',
+  'voting_remaining',
+  'role_catalog'
+];
+
+const extractPublicState = (rawState) => {
+  if (!rawState) return null;
+  const pub = {};
+  for (const key of PUBLIC_STATE_KEYS) {
+    if (rawState[key] !== undefined) {
+      pub[key] = rawState[key];
+    }
+  }
+  return pub;
+};
 
 // Funciones de persistencia de sesión en navegador móvil/escritorio
 export const getStoredSession = () => {
@@ -94,11 +128,13 @@ export const useGameStore = create((set, get) => ({
     lastSuccessfulPing: null
   },
   
-  // Estado del juego público
+  // Estado del juego público (separado del estado privado)
+  publicState: null,
   gameState: null,
   
   // Estado privado del jugador
   privateState: null,
+  nightSummary: null,
   
   // Información del turno actual (SOLO para UI - no para lógica)
   currentTurnDisplay: null,
@@ -199,59 +235,51 @@ export const useGameStore = create((set, get) => ({
   },
   
   setGameState: (state) => {
-    const current = get().gameState;
+    const cleanPublic = extractPublicState(state);
+    const current = get().publicState;
     
-    // ✅ Evitar actualizaciones innecesarias
-    if (current === state) {
-      console.log('🔄 setGameState: Misma referencia, ignorando');
+    if (current === cleanPublic) {
+      return;
+    }
+    if (current && cleanPublic && deepEqual(current, cleanPublic)) {
       return;
     }
     
-    // ✅ Comparación profunda para objetos diferentes usando deepEqual
-    if (current && state && deepEqual(current, state)) {
-      console.log('🔄 setGameState: Sin cambios en contenido, ignorando');
-      return;
-    }
-    
-    console.log('🎮 Actualizando gameState:', state);
-    set({ gameState: state });
+    devLog('🎮 Actualizando publicState / gameState:', cleanPublic);
+    set({ publicState: cleanPublic, gameState: cleanPublic });
   },
   
   setPrivateState: (state) => {
-    console.log('🔍 DEBUG setPrivateState - INICIO:', {
-      estadoRecibido: state,
-      estadoActual: get().privateState,
-      timestamp: Date.now()
-    });
-
     if (!state) {
-      console.log('⚠️ setPrivateState: Estado null/undefined recibido');
       return;
     }
 
-    // ✅ ANTI-DUPLICADOS: Verificación profunda por contenido
     const current = get().privateState;
     if (current && deepEqual(current, state)) {
-      console.log('🔄 setPrivateState: Sin cambios detectados, ignorando');
       return;
     }
 
-    // ✅ CRÍTICO: Actualización simple sin timestamps aleatorios
     set(prevState => {
       const updatedNotes = { ...(prevState.nightNotes || {}) };
+      let nextSummary = state.night_summary || prevState.nightSummary || null;
 
       if (state.seer_last_result) {
         const sr = state.seer_last_result;
         const autoPrefix = sr.auto ? '🎲 (Aleatoria) ' : '';
-        if (sr.seen_player) {
+        if (sr.summary_text) {
+          updatedNotes.seer = sr.summary_text;
+          nextSummary = sr.summary_text;
+        } else if (sr.seen_player) {
           const roleName = ROLES[sr.seen_player.role]?.name || sr.seen_player.role;
           updatedNotes.seer = `${autoPrefix}Viste el rol de ${sr.seen_player.name || sr.seen_player.player_id}: ${roleName}`;
+          nextSummary = updatedNotes.seer;
         } else if (Array.isArray(sr.seen_center)) {
           const positions = ['Izquierda', 'Centro', 'Derecha'];
           const formatted = sr.seen_center
             .map(c => `${positions[c.position] || `Pos ${c.position + 1}`}: ${ROLES[c.role]?.name || c.role}`)
             .join(' | ');
           updatedNotes.seer = `${autoPrefix}Cartas del centro vistas: ${formatted}`;
+          nextSummary = updatedNotes.seer;
         }
       }
 
@@ -262,22 +290,22 @@ export const useGameStore = create((set, get) => ({
         const role = wc.center_role ?? wc.role;
         const posLabel = ['Izquierda', 'Centro', 'Derecha'][pos] || `Posición ${pos + 1}`;
         const roleName = ROLES[role]?.name || role;
-        updatedNotes.werewolf = `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+        updatedNotes.werewolf = wc.summary_text || `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+        nextSummary = updatedNotes.werewolf;
       }
 
-      const newState = {
-        ...prevState,
-        privateState: state, // Usar el estado tal como viene del servidor
-        nightNotes: updatedNotes
-      };
-      
-      console.log('🔍 DEBUG setPrivateState - ESTADO ANTES:', prevState.privateState);
-      console.log('🔍 DEBUG setPrivateState - ESTADO DESPUÉS:', newState.privateState);
-      
-      return newState;
-    });
+      // Si publicState aún no estaba inicializado, extraer únicamente campos públicos
+      const fallbackPublic = prevState.publicState || extractPublicState(state);
 
-    console.log('🔍 DEBUG setPrivateState - FINAL:', get().privateState);
+      return {
+        ...prevState,
+        publicState: fallbackPublic,
+        gameState: fallbackPublic,
+        privateState: state,
+        nightNotes: updatedNotes,
+        nightSummary: nextSummary
+      };
+    });
   },
   
   setCurrentTurnDisplay: (turn) => {
@@ -289,76 +317,67 @@ export const useGameStore = create((set, get) => ({
         current.timestamp === turn.timestamp &&
         current.end_timestamp === turn.end_timestamp &&
         current.remaining === turn.remaining) {
-      console.log('🔄 setCurrentTurnDisplay: Sin cambios relevantes, ignorando');
       return;
     }
     
-    console.log('🎮 Actualizando currentTurnDisplay (solo UI):', turn);
+    devLog('🎮 Actualizando currentTurnDisplay:', turn);
     set({ currentTurnDisplay: turn });
   },
   
   setActionResult: (result) => {
-    console.log('🔍 DEBUG setActionResult - INICIO:', {
-      resultRecibido: result,
-      estadoActual: get().actionResult,
-      optimisticState: get().optimisticState,
-      timestamp: Date.now()
-    });
-
     const currentResult = get().actionResult;
     if (currentResult && result) {
       const { _timestamp: _t1, ...cleanCurrent } = currentResult;
       const { _timestamp: _t2, ...cleanNext } = result;
       if (deepEqual(cleanCurrent, cleanNext)) {
-        console.log('🔄 setActionResult: Sin cambios detectados, ignorando');
         return;
       }
     } else if (currentResult === result) {
-      console.log('🔄 setActionResult: Misma referencia, ignorando');
       return;
     }
     
-    // ✅ CRÍTICO: Actualización inmutable para forzar re-render y sincronizar notas nocturnas
     set(state => {
       const updatedNotes = { ...(state.nightNotes || {}) };
+      let nextSummary = state.nightSummary;
+
       if (result) {
         const autoPrefix = result.auto ? '🎲 (Aleatoria) ' : '';
+        if (result.summary_text) {
+          nextSummary = result.summary_text;
+        }
         if (result.seen_player) {
           const roleName = ROLES[result.seen_player.role]?.name || result.seen_player.role;
-          updatedNotes.seer = `${autoPrefix}Viste el rol de ${result.seen_player.name || result.seen_player.player_id}: ${roleName}`;
+          updatedNotes.seer = result.summary_text || `${autoPrefix}Viste el rol de ${result.seen_player.name || result.seen_player.player_id}: ${roleName}`;
+          nextSummary = updatedNotes.seer;
         } else if (Array.isArray(result.seen_center)) {
           const positions = ['Izquierda', 'Centro', 'Derecha'];
           const formatted = result.seen_center
             .map(c => `${positions[c.position] || `Pos ${c.position + 1}`}: ${ROLES[c.role]?.name || c.role}`)
             .join(' | ');
-          updatedNotes.seer = `${autoPrefix}Cartas del centro vistas: ${formatted}`;
+          updatedNotes.seer = result.summary_text || `${autoPrefix}Cartas del centro vistas: ${formatted}`;
+          nextSummary = updatedNotes.seer;
         } else if (result.center_role !== undefined && result.center_position !== undefined) {
           const posLabel = ['Izquierda', 'Centro', 'Derecha'][result.center_position] || `Posición ${result.center_position + 1}`;
           const roleName = ROLES[result.center_role]?.name || result.center_role;
-          updatedNotes.werewolf = `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+          updatedNotes.werewolf = result.summary_text || `${autoPrefix}Lobo solitario - Carta del centro (${posLabel}): ${roleName}`;
+          nextSummary = updatedNotes.werewolf;
         }
+      } else {
+        nextSummary = null;
       }
 
-      const newState = {
+      return {
         ...state,
         actionResult: result ? { ...result, _timestamp: Date.now() } : null,
-        nightNotes: updatedNotes
+        nightNotes: updatedNotes,
+        nightSummary: nextSummary
       };
-      
-      return newState;
     });
     
-    // ✅ FIX: Limpiar estado optimista cuando llega resultado real
     const { optimisticState, clearOptimisticState } = get();
     if (optimisticState.actionInProgress) {
-      console.log('✅ Limpiando estado optimista tras resultado real');
       clearOptimisticState();
     }
-    
-    console.log('🔍 DEBUG setActionResult - FINAL:', {
-      nuevoActionResult: get().actionResult,
-      estadoOptimista: get().optimisticState
-    });
   },
 
   setRevealData: (data) => {
@@ -382,6 +401,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   clearNightNotes: () => set({
+    nightSummary: null,
     nightNotes: {
       werewolf: null,
       mason: null,
@@ -805,12 +825,15 @@ export const useGameStore = create((set, get) => ({
   },
 
   resetGame: (toPhase) => {
-    const { emitEvent, gameState, privateState } = get();
+    const { emitEvent, publicState, gameState, privateState } = get();
     const updates = { showRoleSelector: false };
     if (toPhase === 'lobby') {
       updates.selectedRoles = {};
-      if (gameState) {
-        updates.gameState = { ...gameState, phase: 'lobby', selected_roles: [], selected_roles_count: 0 };
+      const basePublic = publicState || gameState;
+      if (basePublic) {
+        const nextPub = { ...basePublic, phase: 'lobby', selected_roles: [], selected_roles_count: 0 };
+        updates.publicState = nextPub;
+        updates.gameState = nextPub;
       }
       if (privateState) {
         updates.privateState = { ...privateState, phase: 'lobby', selected_roles: [], selected_roles_count: 0 };
@@ -825,6 +848,7 @@ export const useGameStore = create((set, get) => ({
       revealData: null,
       myVote: null,
       actionResult: null,
+      nightSummary: null,
       nightNotes: {
         werewolf: null,
         mason: null,
@@ -848,8 +872,10 @@ export const useGameStore = create((set, get) => ({
     
     set({
       debounceTimers: {},
+      publicState: null,
       gameState: null,
       privateState: null,
+      nightSummary: null,
       currentTurnDisplay: null,
       actionResult: null,
       revealData: null,

@@ -239,29 +239,37 @@ export const NightPhase = React.memo(() => {
             )}
             <p>🎭 Tu rol inicial: {ROLES[myOriginalRole]?.name || myOriginalRole}</p>
             <p>👥 Jugadores en partida: {gameState?.player_count || 0}</p>
-            {nightNotes?.werewolf && myOriginalRole === 'werewolf' && (
-              <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
-            )}
-            {nightNotes?.mason && myOriginalRole === 'mason' && (
-              <p className="text-yellow-400 font-semibold">🔨 {nightNotes.mason}</p>
-            )}
-            {nightNotes?.seer && myOriginalRole === 'seer' && (
-              <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
-            )}
-            {privateState?.robber_last_target && myOriginalRole === 'robber' && (
+            {privateState?.night_summary ? (
               <p className="text-yellow-400 font-semibold">
-                🦹 {privateState.robber_last_target.auto ? '🎲 (Aleatoria) ' : ''}Robaste a {privateState.robber_last_target.name} y ahora eres {ROLES[privateState.robber_last_target.new_role || privateState.robber_last_target.role || myRole]?.name || privateState.robber_last_target.new_role || myRole}.
+                {ROLES[myOriginalRole]?.emoji || '✨'} {privateState.night_summary}
               </p>
-            )}
-            {privateState?.troublemaker_last_swap && myOriginalRole === 'troublemaker' && (
-              <p className="text-yellow-400 font-semibold">
-                🎭 {privateState.troublemaker_last_swap.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste las cartas de {privateState.troublemaker_last_swap.a?.name || privateState.troublemaker_last_swap[0]?.name} y {privateState.troublemaker_last_swap.b?.name || privateState.troublemaker_last_swap[1]?.name}.
-              </p>
-            )}
-            {privateState?.drunk_last_center !== undefined && myOriginalRole === 'drunk' && (
-              <p className="text-yellow-400 font-semibold">
-                🍺 Recuerda: intercambiaste tu carta con la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'} del centro.
-              </p>
+            ) : (
+              <>
+                {nightNotes?.werewolf && myOriginalRole === 'werewolf' && (
+                  <p className="text-yellow-400 font-semibold">🐺 {nightNotes.werewolf}</p>
+                )}
+                {nightNotes?.mason && myOriginalRole === 'mason' && (
+                  <p className="text-yellow-400 font-semibold">🔨 {nightNotes.mason}</p>
+                )}
+                {nightNotes?.seer && myOriginalRole === 'seer' && (
+                  <p className="text-yellow-400 font-semibold">🔮 {nightNotes.seer}</p>
+                )}
+                {privateState?.robber_last_target && myOriginalRole === 'robber' && (
+                  <p className="text-yellow-400 font-semibold">
+                    🦹 {privateState.robber_last_target.auto ? '🎲 (Aleatoria) ' : ''}Robaste a {privateState.robber_last_target.name} y ahora eres {ROLES[privateState.robber_last_target.new_role || privateState.robber_last_target.role || myRole]?.name || privateState.robber_last_target.new_role || myRole}.
+                  </p>
+                )}
+                {privateState?.troublemaker_last_swap && myOriginalRole === 'troublemaker' && (
+                  <p className="text-yellow-400 font-semibold">
+                    🎭 {privateState.troublemaker_last_swap.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste las cartas de {privateState.troublemaker_last_swap.a?.name || privateState.troublemaker_last_swap[0]?.name} y {privateState.troublemaker_last_swap.b?.name || privateState.troublemaker_last_swap[1]?.name}.
+                  </p>
+                )}
+                {privateState?.drunk_last_center !== undefined && myOriginalRole === 'drunk' && (
+                  <p className="text-yellow-400 font-semibold">
+                    🍺 Recuerda: intercambiaste tu carta con la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'} del centro.
+                  </p>
+                )}
+              </>
             )}
             {/* Mostrar info del turno actual para todos */}
             {currentTurnRole && (

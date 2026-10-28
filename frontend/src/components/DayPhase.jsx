@@ -113,34 +113,42 @@ export const DayPhase = ({ isHost }) => {
                   </span>
                 )}
               </p>
-              {nightNotes?.seer && myOriginalRole === 'seer' && (
-                <p className="text-purple-300 font-medium">🔮 {nightNotes.seer}</p>
-              )}
-              {nightNotes?.werewolf && myOriginalRole === 'werewolf' && (
-                <p className="text-red-300 font-medium">🐺 {nightNotes.werewolf}</p>
-              )}
-              {nightNotes?.mason && myOriginalRole === 'mason' && (
-                <p className="text-cyan-300 font-medium">🔨 {nightNotes.mason}</p>
-              )}
-              {privateState?.robber_last_target && myOriginalRole === 'robber' && (
+              {privateState?.night_summary ? (
                 <p className="text-amber-300 font-medium">
-                  🦹 {privateState.robber_last_target.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste carta con {privateState.robber_last_target.name} y obtuviste {ROLES[privateState.robber_last_target.new_role || privateState.robber_last_target.role || myCurrentRole]?.name || privateState.robber_last_target.new_role || myCurrentRole}.
+                  {ROLES[myOriginalRole]?.emoji || '✨'} {privateState.night_summary}
                 </p>
-              )}
-              {privateState?.troublemaker_last_swap && myOriginalRole === 'troublemaker' && (
-                <p className="text-amber-300 font-medium">
-                  🎭 {privateState.troublemaker_last_swap.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste las cartas de {privateState.troublemaker_last_swap.a?.name || privateState.troublemaker_last_swap[0]?.name} y {privateState.troublemaker_last_swap.b?.name || privateState.troublemaker_last_swap[1]?.name}.
-                </p>
-              )}
-              {privateState?.drunk_last_center !== undefined && myOriginalRole === 'drunk' && (
-                <p className="text-amber-300 font-medium">
-                  🍺 Intercambiaste tu carta con la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'} del centro.
-                </p>
-              )}
-              {actionResult?.message && !nightNotes?.seer && !nightNotes?.werewolf && !privateState?.robber_last_target && !privateState?.troublemaker_last_swap && privateState?.drunk_last_center === undefined && (
-                <p className="text-green-300 font-medium">
-                  ✓ {actionResult.auto ? '🎲 (Aleatoria) ' : ''}{actionResult.message}
-                </p>
+              ) : (
+                <>
+                  {nightNotes?.seer && myOriginalRole === 'seer' && (
+                    <p className="text-purple-300 font-medium">🔮 {nightNotes.seer}</p>
+                  )}
+                  {nightNotes?.werewolf && myOriginalRole === 'werewolf' && (
+                    <p className="text-red-300 font-medium">🐺 {nightNotes.werewolf}</p>
+                  )}
+                  {nightNotes?.mason && myOriginalRole === 'mason' && (
+                    <p className="text-cyan-300 font-medium">🔨 {nightNotes.mason}</p>
+                  )}
+                  {privateState?.robber_last_target && myOriginalRole === 'robber' && (
+                    <p className="text-amber-300 font-medium">
+                      🦹 {privateState.robber_last_target.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste carta con {privateState.robber_last_target.name} y obtuviste {ROLES[privateState.robber_last_target.new_role || privateState.robber_last_target.role || myCurrentRole]?.name || privateState.robber_last_target.new_role || myCurrentRole}.
+                    </p>
+                  )}
+                  {privateState?.troublemaker_last_swap && myOriginalRole === 'troublemaker' && (
+                    <p className="text-amber-300 font-medium">
+                      🎭 {privateState.troublemaker_last_swap.auto ? '🎲 (Aleatoria) ' : ''}Intercambiaste las cartas de {privateState.troublemaker_last_swap.a?.name || privateState.troublemaker_last_swap[0]?.name} y {privateState.troublemaker_last_swap.b?.name || privateState.troublemaker_last_swap[1]?.name}.
+                    </p>
+                  )}
+                  {privateState?.drunk_last_center !== undefined && myOriginalRole === 'drunk' && (
+                    <p className="text-amber-300 font-medium">
+                      🍺 Intercambiaste tu carta con la carta {['izquierda', 'centro', 'derecha'][privateState.drunk_last_center] || 'izquierda'} del centro.
+                    </p>
+                  )}
+                  {actionResult?.message && !nightNotes?.seer && !nightNotes?.werewolf && !privateState?.robber_last_target && !privateState?.troublemaker_last_swap && privateState?.drunk_last_center === undefined && (
+                    <p className="text-green-300 font-medium">
+                      ✓ {actionResult.auto ? '🎲 (Aleatoria) ' : ''}{actionResult.summary_text || actionResult.message}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

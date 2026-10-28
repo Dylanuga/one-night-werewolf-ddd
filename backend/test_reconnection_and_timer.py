@@ -145,9 +145,67 @@ def test_auto_actions_and_reset_to_lobby():
     assert game.selected_roles == []
     print("   ✅ Reset de ROLE_SELECTION a LOBBY ('Volver al Lobby') funciona correctamente")
 
+
+def test_polymorphic_roles_catalog_and_death_triggers():
+    print("\n🧪 TEST 5: Catálogo centralizado, contrato unificado y disparo del Cazador (Hunter)...")
+    from domain.roles import RoleFactory, ROLE_METADATA
+
+    catalog = RoleFactory.get_catalog()
+    assert "werewolf" in catalog and "seer" in catalog and "hunter" in catalog and "tanner" in catalog
+    assert catalog["seer"]["interaction_type"] == "select_player_or_center"
+    print("   ✅ Catálogo centralizado de roles validado")
+
+    # Probar polimorfismo execute_current_turn_auto_action y night_summary unificado
+    game = GameLogic("POLY")
+    game.add_player("p1", "HunterPlayer", "s1", is_host=True)
+    game.add_player("p2", "WolfPlayer", "s2")
+    game.add_player("p3", "SeerPlayer", "s3")
+
+    roles = ["hunter", "werewolf", "seer", "villager", "robber", "drunk"]
+    assert game.set_selected_roles(roles)
+    game.enable_test_mode({
+        "players": ["hunter", "werewolf", "seer"],
+        "center": ["villager", "robber", "drunk"]
+    })
+    assert game.start_game()
+
+    # Turno 0: werewolf (lobo solitario) via execute_current_turn_auto_action()
+    assert game.get_current_turn_role() == "werewolf"
+    res_ww = game.execute_current_turn_auto_action()
+    assert res_ww["success"] and res_ww["auto"] is True
+    assert res_ww.get("summary_text") and isinstance(res_ww.get("revealed_cards"), list)
+    p2_priv = game.get_private_state_for_player("p2")
+    assert p2_priv.get("night_summary") == res_ww["summary_text"]
+
+    # Turno 1: seer via execute_current_turn_auto_action()
+    game.advance_night_turn()
+    assert game.get_current_turn_role() == "seer"
+    res_seer = game.execute_current_turn_auto_action()
+    assert res_seer["success"] and res_seer["auto"] is True
+    assert res_seer.get("summary_text") and isinstance(res_seer.get("revealed_cards"), list)
+    p3_priv = game.get_private_state_for_player("p3")
+    assert p3_priv.get("night_summary") == res_seer["summary_text"]
+    print("   ✅ Contrato unificado (night_summary + revealed_cards) validado")
+
+    # Fase de votación: p2 y p3 votan al Cazador (p1), pero el Cazador (p1) vota al Lobo (p2)
+    game.phase = GamePhase.DAY_PHASE
+    assert game.start_voting_phase()
+    game.submit_vote("p2", "p1")
+    game.submit_vote("p3", "p1")
+    game.submit_vote("p1", "p2")  # Cazador apunta al Lobo
+
+    game._finalize_game()
+    assert "p1" in game.eliminated_ids, "El Cazador fue el más votado"
+    assert "p2" in game.eliminated_ids, "El Lobo debe morir por el disparo del Cazador"
+    assert "p2" in game.chain_eliminated_ids
+    assert game.winners["team"] == "villagers", "Los aldeanos ganan gracias al disparo del Cazador"
+    print("   ✅ Motor de resolución con efectos al morir (Cazador) funciona perfectamente")
+
+
 if __name__ == '__main__':
     test_reconnection_during_phases()
     test_timer_configuration()
     test_voting_with_disconnected_or_missing_votes()
     test_auto_actions_and_reset_to_lobby()
+    test_polymorphic_roles_catalog_and_death_triggers()
     print("\n🎉 TODOS LOS TESTS DE RECONEXIÓN Y TEMPORIZADOR PASARON CON ÉXITO")

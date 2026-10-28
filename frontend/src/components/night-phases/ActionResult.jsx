@@ -19,46 +19,61 @@ export const ActionResult = ({ actionResult }) => {
           </span>
         )}
       </div>
-      <p className="text-white font-medium">{actionResult.message}</p>
+      <p className="text-white font-medium">{actionResult.summary_text || actionResult.message}</p>
 
-      {actionResult.seen_player && (
-        <p className="text-yellow-300 mt-2 font-semibold">
-          🔮 {actionResult.seen_player.name || actionResult.seen_player.player_id} tiene el rol:{' '}
-          <span className="text-white underline">
-            {ROLES[actionResult.seen_player.role]?.name || actionResult.seen_player.role}
-          </span>
-        </p>
-      )}
-
-      {Array.isArray(actionResult.seen_center) && (
+      {Array.isArray(actionResult.revealed_cards) && actionResult.revealed_cards.length > 0 ? (
         <div className="text-yellow-300 mt-2 space-y-1 font-semibold">
-          {actionResult.seen_center.map((card) => (
-            <div key={card.position}>
-              🃏 Carta {posNames[card.position] || `#${card.position + 1}`}:{' '}
+          {actionResult.revealed_cards.map((card, idx) => (
+            <div key={`${card.source}_${card.position ?? card.player_id ?? idx}`}>
+              🃏 {card.label}:{' '}
               <span className="text-white underline">
                 {ROLES[card.role]?.name || card.role}
               </span>
             </div>
           ))}
         </div>
-      )}
+      ) : (
+        <>
+          {actionResult.seen_player && (
+            <p className="text-yellow-300 mt-2 font-semibold">
+              🔮 {actionResult.seen_player.name || actionResult.seen_player.player_id} tiene el rol:{' '}
+              <span className="text-white underline">
+                {ROLES[actionResult.seen_player.role]?.name || actionResult.seen_player.role}
+              </span>
+            </p>
+          )}
 
-      {actionResult.center_role && actionResult.center_position !== undefined && (
-        <p className="text-yellow-300 mt-2 font-semibold">
-          🐺 Carta del centro ({posNames[actionResult.center_position] || `#${actionResult.center_position + 1}`}):{' '}
-          <span className="text-white underline">
-            {ROLES[actionResult.center_role]?.name || actionResult.center_role}
-          </span>
-        </p>
-      )}
+          {Array.isArray(actionResult.seen_center) && (
+            <div className="text-yellow-300 mt-2 space-y-1 font-semibold">
+              {actionResult.seen_center.map((card) => (
+                <div key={card.position}>
+                  🃏 Carta {posNames[card.position] || `#${card.position + 1}`}:{' '}
+                  <span className="text-white underline">
+                    {ROLES[card.role]?.name || card.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
-      {actionResult.robbed_player && (
-        <p className="text-yellow-300 mt-2 font-semibold">
-          🦹 Intercambiaste con {actionResult.robbed_player.name}. Tu nuevo rol es:{' '}
-          <span className="text-white underline">
-            {ROLES[actionResult.new_role || actionResult.robbed_player.role]?.name || actionResult.new_role || actionResult.robbed_player.role}
-          </span>
-        </p>
+          {actionResult.center_role && actionResult.center_position !== undefined && (
+            <p className="text-yellow-300 mt-2 font-semibold">
+              🐺 Carta del centro ({posNames[actionResult.center_position] || `#${actionResult.center_position + 1}`}):{' '}
+              <span className="text-white underline">
+                {ROLES[actionResult.center_role]?.name || actionResult.center_role}
+              </span>
+            </p>
+          )}
+
+          {actionResult.robbed_player && (
+            <p className="text-yellow-300 mt-2 font-semibold">
+              🦹 Intercambiaste con {actionResult.robbed_player.name}. Tu nuevo rol es:{' '}
+              <span className="text-white underline">
+                {ROLES[actionResult.new_role || actionResult.robbed_player.role]?.name || actionResult.new_role || actionResult.robbed_player.role}
+              </span>
+            </p>
+          )}
+        </>
       )}
 
       {actionResult.swapped_players && (
