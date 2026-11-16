@@ -4,8 +4,22 @@ import random
 import time
 from typing import Dict, List, Optional, Any, Set
 from enum import Enum
+
+from .night_resolution import (
+    advance_night_turn as resolve_advance_night_turn,
+    calculate_night_turns as resolve_night_turns,
+    execute_current_turn_auto_action as resolve_current_turn_auto_action,
+    execute_night_action as resolve_night_action,
+    get_night_action_data_for_player as resolve_night_action_data_for_player,
+)
 from .player import Player
 from .roles import RoleFactory, ROLE_METADATA, ROLE_NAMES_ES as CATALOG_ROLE_NAMES_ES
+from .voting_resolution import (
+    can_finalize as resolve_can_finalize,
+    finalize_game as resolve_finalize_game,
+    get_reveal_data as resolve_reveal_data,
+    submit_vote as resolve_submit_vote,
+)
 
 
 class GamePhase(Enum):
@@ -224,18 +238,7 @@ class GameLogic:
 
     def _calculate_night_turns(self) -> List[str]:
         """Calcula el orden de turnos nocturnos basado en roles únicos con acciones."""
-        roles_in_play = {p.get_role_name() for p in self.players.values()}.union(set(self.center_cards))
-
-        roles_with_turns = {}
-        for role_name in roles_in_play:
-            role_instance = RoleFactory.create_role(role_name)
-            if role_instance and role_instance.can_act_at_night():
-                roles_with_turns[role_name] = role_instance.get_turn_order()
-
-        sorted_roles = sorted(roles_with_turns.items(), key=lambda item: item[1])
-        night_turns = [role for role, _ in sorted_roles]
-        print(f"🔧 TURNOS NOCTURNOS CALCULADOS (POR ROL): {night_turns}")
-        return night_turns
+        return resolve_night_turns(self)
 
     def get_current_turn_role(self) -> Optional[str]:
         """Retorna el rol que está actuando en el turno actual."""
@@ -245,61 +248,15 @@ class GameLogic:
 
     def get_night_action_data_for_player(self, player_id: str) -> Optional[Dict[str, Any]]:
         """Retorna los datos de acción nocturna para un jugador específico (y registra info pasiva)"""
-        if self.phase != GamePhase.NIGHT_PHASE or player_id not in self.players:
-            return None
-
-        player = self.players[player_id]
-        if not player.original_role:
-            return None
-
-        game_state = self._get_game_state()
-        original_role_class = RoleFactory.create_role(player.original_role)
-        data = original_role_class.get_night_action_data(player_id, game_state)
-
-        # Si es información pasiva (ej. 2 lobos, masones, insomne) y es su turno, guardar en el resumen nocturno
-        if data and data.get("interaction_type") == "passive_info" and self.get_current_turn_role() == player.original_role:
-            self.record_player_night_action(player_id, {
-                "role": player.original_role,
-                "interaction_type": "passive_info",
-                "message": data.get("message", ""),
-                "summary_text": data.get("summary_text", data.get("message", "")),
-                "revealed_cards": data.get("revealed_cards", []),
-                "auto": False
-            })
-
-        return data
+        return resolve_night_action_data_for_player(self, player_id)
 
     def execute_night_action(self, player_id: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
         """Ejecuta una acción nocturna delegando polimórficamente en la clase de rol."""
-        if self.phase != GamePhase.NIGHT_PHASE:
-            return {"success": False, "message": "No es la fase nocturna"}
-        if player_id not in self.players:
-            return {"success": False, "message": "Jugador no encontrado"}
-
-        player = self.players[player_id]
-        current_role = self.get_current_turn_role()
-
-        if player.original_role != current_role:
-            return {"success": False, "message": "No es el turno de tu rol"}
-        if not player.role:
-            return {"success": False, "message": "No tienes rol asignado"}
-
-        role_instance = RoleFactory.create_role(current_role)
-        result = role_instance.execute_night_action_on_game(self, player_id, action_data, is_auto=False)
-
-        if result.get("success") and self.test_mode:
-            role_es = ROLE_NAMES_ES.get(player.original_role, player.original_role)
-            self.add_log(f"🎯 {player.name} ({role_es}) ejecutó su acción.")
-        return result
+        return resolve_night_action(self, player_id, action_data, ROLE_NAMES_ES)
 
     def execute_current_turn_auto_action(self) -> Dict[str, Any]:
         """Ejecuta polimórficamente la acción automática aleatoria del rol cuyo turno expira."""
-        current_role = self.get_current_turn_role()
-        if not current_role:
-            return {"success": False, "message": "No hay turno activo"}
-
-        role_instance = RoleFactory.create_role(current_role)
-        return role_instance.execute_auto_action_on_game(self)
+        return resolve_current_turn_auto_action(self)
 
     # Métodos delegados por compatibilidad con llamadas directas y tests existentes
     def _execute_werewolf_action(self, player_id: str, action_data: Dict[str, Any], is_auto: bool = False) -> Dict[str, Any]:
@@ -334,20 +291,7 @@ class GameLogic:
 
     def advance_night_turn(self) -> bool:
         """Avanza al siguiente turno nocturno."""
-        if self.phase != GamePhase.NIGHT_PHASE:
-            return False
-
-        self.current_turn_index += 1
-
-        if self.current_turn_index >= len(self.night_turns):
-            self.night_finished = True
-            return True
-
-        current_role = self.get_current_turn_role()
-        if current_role:
-            self.add_log(f"--- Fase: {ROLE_NAMES_ES.get(current_role, current_role)} ---")
-            self.mark_role_acted(current_role, False)
-        return True
+        return resolve_advance_night_turn(self, ROLE_NAMES_ES)
 
     def set_discussion_duration(self, duration: int) -> bool:
         """Establece la duración del debate en segundos (120, 300, 600)"""
@@ -368,153 +312,15 @@ class GameLogic:
 
     def submit_vote(self, voter_id: str, target_id: str) -> Dict[str, Any]:
         """Registra el voto de un jugador."""
-        if self.phase != GamePhase.VOTING:
-            return {"success": False, "message": "No es la fase de votación"}
-        if voter_id not in self.players:
-            return {"success": False, "message": "Jugador no encontrado"}
-        if target_id not in self.players:
-            return {"success": False, "message": "Objetivo inválido"}
-        if voter_id == target_id:
-            return {"success": False, "message": "No puedes votarte a ti mismo"}
-
-        self.votes[voter_id] = target_id
-        all_voted = all(v is not None for v in self.votes.values())
-
-        connected_pids = [pid for pid, p in self.players.items() if p.is_connected]
-        all_connected_voted = bool(connected_pids) and all(self.votes.get(pid) is not None for pid in connected_pids)
-
-        return {
-            "success": True,
-            "all_voted": all_voted,
-            "all_connected_voted": all_connected_voted
-        }
+        return resolve_submit_vote(self, voter_id, target_id)
 
     def can_finalize(self, allow_partial: bool = False) -> bool:
         """Indica si todos han votado o se permite revelar."""
-        if self.phase != GamePhase.VOTING:
-            return False
-        if allow_partial:
-            return any(v is not None for v in self.votes.values()) if self.votes else True
-
-        connected_pids = [pid for pid, p in self.players.items() if p.is_connected]
-        if connected_pids and all(self.votes.get(pid) is not None for pid in connected_pids):
-            return True
-
-        return bool(self.votes) and all(v is not None for v in self.votes.values())
+        return resolve_can_finalize(self, allow_partial=allow_partial)
 
     def _finalize_game(self):
-        """
-        Motor de resolución de partida en 3 fases:
-        1. Recuento de votos y linchamientos iniciales.
-        2. Resolución de efectos al morir (ej. disparo del Cazador en cadena).
-        3. Evaluación de condiciones de victoria por prioridad de bandos.
-        """
-        # Snapshot de roles finales
-        self.final_roles = {pid: p.get_role_name() for pid, p in self.players.items()}
-
-        # Fase 1: Recuento de votos
-        vote_counts: Dict[str, int] = {}
-        for target_id in self.votes.values():
-            if target_id is None:
-                continue
-            vote_counts[target_id] = vote_counts.get(target_id, 0) + 1
-
-        initial_eliminated: List[str] = []
-        if vote_counts:
-            max_votes = max(vote_counts.values())
-            initial_eliminated = [pid for pid, count in vote_counts.items() if count == max_votes]
-
-        # Fase 2: Efectos encadenados al morir (p. ej. Cazador / Hunter)
-        eliminated_set: List[str] = list(initial_eliminated)
-        chain_eliminated: List[str] = []
-        hunter_shots: List[Dict[str, Any]] = []
-        queue: List[str] = list(initial_eliminated)
-
-        while queue:
-            dead_pid = queue.pop(0)
-            dead_role_name = self.final_roles.get(dead_pid)
-            if not dead_role_name:
-                continue
-            try:
-                role_obj = RoleFactory.create_role(dead_role_name)
-                extra_targets = role_obj.on_death_trigger(self, dead_pid, self.votes)
-                for extra_pid in extra_targets:
-                    if extra_pid not in eliminated_set:
-                        eliminated_set.append(extra_pid)
-                        chain_eliminated.append(extra_pid)
-                        queue.append(extra_pid)
-                        dead_name = self.players[dead_pid].name if dead_pid in self.players else dead_pid
-                        extra_name = self.players[extra_pid].name if extra_pid in self.players else extra_pid
-                        target_role = self.final_roles.get(extra_pid)
-                        hunter_shots.append({
-                            "hunter_id": dead_pid,
-                            "hunter_name": dead_name,
-                            "target_id": extra_pid,
-                            "target_name": extra_name,
-                            "target_role": target_role
-                        })
-                        self.add_log(f"🏹 {dead_name} (Cazador) cayó y disparó a {extra_name}.")
-            except ValueError:
-                continue
-
-        self.eliminated_ids = eliminated_set
-        self.chain_eliminated_ids = chain_eliminated
-
-        # Fase 3: Evaluación de victoria por equipos
-        werewolves_in_final = [pid for pid, role in self.final_roles.items() if role == "werewolf"]
-        eliminated_werewolves = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == "werewolf"]
-        direct_lynched_wolves = [pid for pid in initial_eliminated if self.final_roles.get(pid) == "werewolf"]
-        wolf_killed_by_hunter = [s for s in hunter_shots if s.get("target_role") == "werewolf"]
-        eliminated_tanners = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == "tanner"]
-        villager_team_pids = [pid for pid, r in self.final_roles.items() if r not in ("werewolf", "tanner")]
-
-        if eliminated_tanners and eliminated_werewolves:
-            team = "tanner"
-            if not direct_lynched_wolves and wolf_killed_by_hunter:
-                shot = wolf_killed_by_hunter[0]
-                message = (
-                    f"🏹 Ganan el Curtidor y los Aldeanos (el Cazador {shot['hunter_name']} "
-                    f"abatió al lobo {shot['target_name']} antes de morir)."
-                )
-            else:
-                message = "Ganan el Curtidor y los Aldeanos (murieron el Curtidor y un Hombre Lobo)."
-            winning_player_ids = eliminated_tanners + villager_team_pids
-        elif eliminated_tanners:
-            team = "tanner"
-            message = "Gana el Curtidor (consiguió ser linchado)."
-            winning_player_ids = eliminated_tanners
-        elif eliminated_werewolves:
-            team = "villagers"
-            if not direct_lynched_wolves and wolf_killed_by_hunter:
-                shot = wolf_killed_by_hunter[0]
-                message = (
-                    f"🏹 El cazador ({shot['hunter_name']}) pudo dar con el lobo "
-                    f"({shot['target_name']}) antes de que lo linchen. ¡La aldea gana!"
-                )
-            else:
-                message = "Los aldeanos ganan (eliminaron a un hombre lobo)."
-            winning_player_ids = villager_team_pids
-        else:
-            if len(werewolves_in_final) == 0:
-                team = "villagers"
-                message = "Los aldeanos ganan (no había lobos en el pueblo)."
-                winning_player_ids = villager_team_pids
-            else:
-                team = "werewolves"
-                message = "Los lobos ganan (ningún lobo fue eliminado)."
-                winning_player_ids = werewolves_in_final
-
-        self.winners = {
-            "team": team,
-            "message": message,
-            "eliminated_ids": self.eliminated_ids,
-            "chain_eliminated_ids": self.chain_eliminated_ids,
-            "hunter_shots": hunter_shots,
-            "winning_player_ids": winning_player_ids
-        }
-
-        self.phase = GamePhase.GAME_END
-        self.add_log("🏁 Fin de partida")
+        """Resuelve votos, efectos encadenados y ganadores."""
+        resolve_finalize_game(self, GamePhase.GAME_END)
 
     def reset_game(self, to_phase: str) -> bool:
         """Reinicia la partida a LOBBY o ROLE_SELECTION"""
@@ -553,15 +359,7 @@ class GameLogic:
 
     def get_reveal_data(self) -> Dict[str, Any]:
         """Retorna los datos de revelación final."""
-        return {
-            "final_roles": {pid: {"role": self.final_roles.get(pid), "name": p.name} for pid, p in self.players.items()},
-            "original_roles": {pid: {"role": p.original_role, "name": p.name} for pid, p in self.players.items()},
-            "eliminated_ids": self.eliminated_ids,
-            "chain_eliminated_ids": self.chain_eliminated_ids,
-            "hunter_shots": self.winners.get("hunter_shots", []),
-            "votes": self.votes,
-            "winners": self.winners
-        }
+        return resolve_reveal_data(self)
 
     def _get_game_state(self) -> Dict[str, Any]:
         """Retorna el estado actual del juego para las reglas de dominio."""

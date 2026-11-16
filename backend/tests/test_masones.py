@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Test específico para el rol de Masones
+Prueba todas las funcionalidades implementadas para los masones.
+"""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from domain.game_logic import GameLogic
+from domain.roles import MasonRole
+
+
+def test_masones_se_reconocen():
+    """Test: Dos masones entre jugadores se reconocen"""
+    print("🔧 TEST 1: Dos masones se reconocen")
+
+    game = GameLogic("TEST01")
+
+    # Añadir jugadores
+    game.add_player("player1", "Ana", "socket1", is_host=True)
+    game.add_player("player2", "Bob", "socket2")
+    game.add_player("player3", "Carlos", "socket3")
+    game.add_player("player4", "Diana", "socket4")
+
+    # Establecer roles - 2 masones, 2 aldeanos, 3 en centro
+    roles = ['mason', 'mason', 'villager', 'villager', 'werewolf', 'villager', 'villager']
+    game.set_selected_roles(roles)
+
+    # Distribución de prueba: masones en player1 y player2
+    game.enable_test_mode({
+        'players': ['mason', 'mason', 'villager', 'villager'],
+        'center': ['werewolf', 'villager', 'villager']
+    })
+
+    # Iniciar juego
+    success = game.start_game()
+    assert success, "El juego debería iniciar correctamente"
+
+    # Verificar que los masones tienen turno nocturno
+    assert 'mason' in game.night_turns, "Masones deberían tener turno nocturno"
+
+    # Verificar datos de acción nocturna para masón 1
+    action_data_1 = game.get_night_action_data_for_player('player1')
+    assert action_data_1 is not None, "Player1 debería tener datos de acción"
+    assert action_data_1['type'] == 'show_other_mason', "Debería mostrar el otro masón"
+    assert action_data_1['other_mason_name'] == 'Bob', "Debería mostrar a Bob como el otro masón"
+
+    # Verificar datos de acción nocturna para masón 2
+    action_data_2 = game.get_night_action_data_for_player('player2')
+    assert action_data_2 is not None, "Player2 debería tener datos de acción"
+    assert action_data_2['type'] == 'show_other_mason', "Debería mostrar el otro masón"
+    assert action_data_2['other_mason_name'] == 'Ana', "Debería mostrar a Ana como el otro masón"
+
+
+def test_mason_solo():
+    """Test: Un masón solo (el otro está en el centro)"""
+    print("🔧 TEST 2: Masón solo")
+
+    game = GameLogic("TEST02")
+
+    # Añadir jugadores
+    game.add_player("player1", "Ana", "socket1", is_host=True)
+    game.add_player("player2", "Bob", "socket2")
+    game.add_player("player3", "Carlos", "socket3")
+    game.add_player("player4", "Diana", "socket4")
+
+    # Establecer roles - 1 masón entre jugadores, 1 en centro
+    roles = ['mason', 'mason', 'villager', 'werewolf', 'villager', 'villager', 'villager']
+    game.set_selected_roles(roles)
+
+    # Distribución de prueba: solo un masón entre jugadores
+    game.enable_test_mode({
+        'players': ['mason', 'villager', 'villager', 'werewolf'],
+        'center': ['mason', 'villager', 'villager']
+    })
+
+    # Iniciar juego
+    success = game.start_game()
+    assert success, "El juego debería iniciar correctamente"
+
+    # Verificar datos de acción nocturna para el masón solitario
+    action_data = game.get_night_action_data_for_player('player1')
+    assert action_data is not None, "El masón solo debería tener datos de acción"
+    assert action_data['type'] == 'alone', "Debería indicar que está solo"
+    assert 'Estás solo' in action_data['message'], "El mensaje debería indicar que está solo"
+
+
+def test_masones_en_centro():
+    """Test: Ambos masones están en el centro"""
+    print("🔧 TEST 3: Masones en centro")
+
+    game = GameLogic("TEST03")
+
+    # Añadir jugadores
+    game.add_player("player1", "Ana", "socket1", is_host=True)
+    game.add_player("player2", "Bob", "socket2")
+    game.add_player("player3", "Carlos", "socket3")
+    game.add_player("player4", "Diana", "socket4")
+
+    # Establecer roles - ambos masones en centro
+    roles = ['mason', 'mason', 'villager', 'werewolf', 'villager', 'villager', 'villager']
+    game.set_selected_roles(roles)
+
+    # Distribución de prueba: ambos masones en centro
+    game.enable_test_mode({
+        'players': ['villager', 'villager', 'villager', 'werewolf'],
+        'center': ['mason', 'mason', 'villager']
+    })
+
+    # Iniciar juego
+    success = game.start_game()
+    assert success, "El juego debería iniciar correctamente"
+
+    # Verificar que hay un turno de "mason"
+    assert 'mason' in game.night_turns, "Debería haber un turno de mason"
+
+    # Verificar el turn role cuando es el turno de mason
+    original_index = game.current_turn_index
+    for i, turn in enumerate(game.night_turns):
+        if turn == 'mason':
+            game.current_turn_index = i
+            break
+
+    current_role = game.get_current_turn_role()
+    assert current_role == 'mason', "El rol actual debería ser 'mason' durante el turno de masón"
+
+    # Restaurar índice original
+    game.current_turn_index = original_index
+
+
+def test_mason_role_class():
+    """Test: Verificar la clase MasonRole directamente"""
+    print("🔧 TEST 4: Clase MasonRole")
+
+    mason_role = MasonRole()
+    assert mason_role.turn_order == 2, "Los masones deberían tener turn_order 2"
+
+    game_state = {
+        'players': {
+            'player1': {'name': 'Ana', 'role': 'mason'},
+            'player2': {'name': 'Bob', 'role': 'mason'},
+            'player3': {'name': 'Carlos', 'role': 'villager'}
+        },
+        'center_cards': ['werewolf', 'villager', 'villager']
+    }
+
+    action_data = mason_role.get_night_action_data('player1', game_state)
+    assert action_data['type'] == 'show_other_mason'
+    assert action_data['other_mason_name'] == 'Bob'
+
+    result = mason_role.execute_action('player1', {}, game_state)
+    assert result['success'] is True
+
+
+if __name__ == "__main__":
+    test_masones_se_reconocen()
+    test_mason_solo()
+    test_masones_en_centro()
+    test_mason_role_class()
+
