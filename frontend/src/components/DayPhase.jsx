@@ -148,6 +148,11 @@ export const DayPhase = ({ isHost }) => {
                       ✓ {actionResult.auto ? '🎲 (Aleatoria) ' : ''}{actionResult.summary_text || actionResult.message}
                     </p>
                   )}
+                  {(myOriginalRole === 'hunter' || (myOriginalRole === 'robber' && privateState?.robber_last_target?.new_role === 'hunter')) && (
+                    <p className="text-emerald-300 font-medium">
+                      🏹 Habilidad de Cazador: No tienes acción nocturna. Si mueres linchado en la votación, la persona a la que hayas votado morirá automáticamente contigo.
+                    </p>
+                  )}
                 </>
               )}
             </div>

@@ -6,6 +6,7 @@ import { useGameStore } from '../store/gameStore';
 export const VotingPhase = () => {
   const {
     gameState,
+    privateState,
     myVote,
     submitVote,
     endVoting,
@@ -16,6 +17,11 @@ export const VotingPhase = () => {
   const players = gameState?.players || [];
   const votes = gameState?.votes || {};
   const playersById = Object.fromEntries(players.map(p => [p.player_id, p]));
+
+  const myKnownRole = (privateState?.your_role === 'robber' && privateState?.robber_last_target?.new_role)
+    ? privateState.robber_last_target.new_role
+    : (privateState?.your_role || privateState?.your_original_role);
+  const isHunter = myKnownRole === 'hunter';
   
   const totalVotesCast = Object.values(votes).filter(v => v !== null && v !== undefined).length;
   const connectedPlayers = players.filter(p => p.is_connected !== false);
@@ -89,6 +95,22 @@ export const VotingPhase = () => {
               Selecciona al jugador que sospechas que es Hombre Lobo para lincharlo.
             </p>
 
+            {isHunter && (
+              <div className="mt-4 bg-emerald-950/70 border border-emerald-500/60 rounded-xl p-4 text-left shadow-lg shadow-emerald-950/30">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl leading-none">🏹</span>
+                  <div>
+                    <p className="text-emerald-300 font-bold text-sm md:text-base">
+                      Eres el Cazador — ¡Tu voto es un disparo mortal!
+                    </p>
+                    <p className="text-emerald-100/90 text-xs md:text-sm mt-1">
+                      La persona a la que votes <strong>acabará muerta automáticamente si te linchan</strong>. Apunta bien al sospechoso de ser lobo: incluso si el pueblo te lincha, aún puedes llevarte por delante al lobo y hacer ganar a la aldea.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Contador de tiempo de votación */}
             <div className="mt-4 flex items-center justify-center gap-2">
               <div
@@ -108,9 +130,19 @@ export const VotingPhase = () => {
             </p>
 
             {myVote && (
-              <div className="mt-3 inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-4 py-1.5 rounded-full text-amber-300 text-sm">
+              <div className={`mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm border ${
+                isHunter
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+              }`}>
                 <CheckCircle2 size={16} />
-                <span>Tu voto: <strong>{playersById[myVote]?.name || myVote}</strong></span>
+                {isHunter ? (
+                  <span>
+                    🏹 Objetivo fijado: si te linchan, <strong>{playersById[myVote]?.name || myVote}</strong> morirá contigo
+                  </span>
+                ) : (
+                  <span>Tu voto: <strong>{playersById[myVote]?.name || myVote}</strong></span>
+                )}
               </div>
             )}
           </div>
@@ -118,6 +150,7 @@ export const VotingPhase = () => {
           {/* Lista de jugadores para votar */}
           <div className="grid gap-2.5 my-6">
             {players.map(p => {
+              const isMe = p.name === playerName;
               const isDisconnected = p.is_connected === false;
               const hasVotedForThis = myVote === p.player_id;
               const votersForPlayer = Object.entries(votes)
@@ -146,7 +179,7 @@ export const VotingPhase = () => {
                       />
                       <div className="truncate">
                         <span className="text-white font-semibold">{p.name}</span>
-                        {p.name === playerName && (
+                        {isMe && (
                           <span className="text-xs text-slate-400 ml-1.5">(Tú)</span>
                         )}
                         {isDisconnected && (
@@ -157,16 +190,24 @@ export const VotingPhase = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => submitVote(p.player_id)}
-                      className={`px-4 py-1.5 rounded-lg border text-sm font-semibold transition-all active:scale-95 ${
-                        hasVotedForThis
-                          ? 'bg-red-600 border-red-400 text-white shadow-md shadow-red-900/30'
-                          : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:border-slate-500'
-                      }`}
-                    >
-                      {hasVotedForThis ? 'Votado ✓' : 'Votar'}
-                    </button>
+                    {isMe ? (
+                      <span className="px-3 py-1.5 rounded-lg border border-slate-700/80 bg-slate-800/50 text-slate-400 text-xs font-medium">
+                        No puedes votarte
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => submitVote(p.player_id)}
+                        className={`px-4 py-1.5 rounded-lg border text-sm font-semibold transition-all active:scale-95 ${
+                          hasVotedForThis
+                            ? 'bg-red-600 border-red-400 text-white shadow-md shadow-red-900/30'
+                            : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700 hover:border-slate-500'
+                        }`}
+                      >
+                        {isHunter
+                          ? (hasVotedForThis ? 'Apuntado 🏹✓' : 'Apuntar 🏹')
+                          : (hasVotedForThis ? 'Votado ✓' : 'Votar')}
+                      </button>
+                    )}
                   </div>
 
                   <div className="text-slate-400 text-xs mt-2 pl-5 flex items-center justify-between">

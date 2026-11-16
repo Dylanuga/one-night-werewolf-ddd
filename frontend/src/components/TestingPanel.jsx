@@ -1,6 +1,6 @@
 // src/components/TestingPanel.jsx
 import React, { useState, useEffect } from 'react';
-import { Play, Square, RotateCcw, Eye, Clock, Users, Settings, ArrowLeft, Plus, Minus } from 'lucide-react';
+import { Play, Square, RotateCcw, Eye, Clock, Users, Settings, ArrowLeft, Plus, Minus, ExternalLink, Copy } from 'lucide-react';
 import { ROLES, SOCKET_URL } from '../utils/constants';
 
 const TestingPanel = ({ onBack }) => {
@@ -8,17 +8,18 @@ const TestingPanel = ({ onBack }) => {
   const [isPolling, setIsPolling] = useState(false);
   const [turnHistory, setTurnHistory] = useState([]);
   const [presets, setPresets] = useState({});
-  const [selectedPreset, setSelectedPreset] = useState('basic_werewolf');
+  const [selectedPreset, setSelectedPreset] = useState('hunter_vs_wolf');
   const [isCreating, setIsCreating] = useState(false);
   const [logs, setLogs] = useState([]);
   const [customPlayers, setCustomPlayers] = useState([
-    { name: 'TestPlayer1', role: 'werewolf' },
-    { name: 'TestPlayer2', role: 'villager' },
-    { name: 'TestPlayer3', role: 'villager' }
+    { name: 'Alice', role: 'hunter' },
+    { name: 'Bob', role: 'werewolf' },
+    { name: 'Charlie', role: 'seer' },
+    { name: 'Diana', role: 'villager' }
   ]);
-  const [customCenterRoles, setCustomCenterRoles] = useState(['seer', 'robber', 'villager']);
-  const [customAutoStart, setCustomAutoStart] = useState(true);
-  const [testTurnDuration, setTestTurnDuration] = useState(12);
+  const [customCenterRoles, setCustomCenterRoles] = useState(['robber', 'mason', 'villager']);
+  const [customAutoStart, setCustomAutoStart] = useState(false);
+  const [testTurnDuration, setTestTurnDuration] = useState(8);
   const [assignMode, setAssignMode] = useState('player');
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(0);
   const [selectedCenterIndex, setSelectedCenterIndex] = useState(0);
@@ -262,6 +263,50 @@ const TestingPanel = ({ onBack }) => {
     }
   };
 
+  const startTestGame = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/test/start-game`, { method: 'POST' });
+      const data = await response.json();
+      if (response.ok) {
+        addLog('🚀 Partida iniciada en sala TEST', 'success');
+        await checkTestStatus();
+      } else {
+        addLog('Error iniciando partida: ' + data.error, 'error');
+      }
+    } catch (error) {
+      addLog('Error: ' + error.message, 'error');
+    }
+  };
+
+  const loadPresetIntoEditor = () => {
+    const preset = presets[selectedPreset];
+    if (!preset?.role_distribution) return;
+    const defaultNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Hank', 'Ivy', 'Jack'];
+    const playerRoles = preset.role_distribution.players || [];
+    const centerRoles = preset.role_distribution.center || ['villager', 'seer', 'robber'];
+    setCustomPlayers(
+      playerRoles.map((role, idx) => ({
+        name: defaultNames[idx] || `Jugador${idx + 1}`,
+        role
+      }))
+    );
+    setCustomCenterRoles(centerRoles);
+    setAssignMode('player');
+    setSelectedPlayerIndex(0);
+    addLog(`Preset "${preset.name}" cargado en el editor personalizado`, 'success');
+  };
+
+  const getPlayerJoinUrl = (roomCode, name) =>
+    `${window.location.origin}/?autoJoin=1&room=${encodeURIComponent(roomCode)}&name=${encodeURIComponent(name)}`;
+
+  const openSingleTab = (roomCode, name) => {
+    const url = getPlayerJoinUrl(roomCode, name);
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      addLog(`Popup bloqueado para ${name}. Usa el botón copiar enlace.`, 'warning');
+    }
+  };
+
   const advanceTurn = async () => {
     try {
       const response = await fetch(`${API_BASE}/test/advance-turn`, { method: 'POST' });
@@ -349,6 +394,14 @@ const TestingPanel = ({ onBack }) => {
             {/* Botones de Control */}
             <div className="space-y-3">
               <button
+                onClick={loadPresetIntoEditor}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors text-sm"
+              >
+                <Settings size={15} />
+                Cargar Preset en Editor
+              </button>
+
+              <button
                 onClick={createTestRoom}
                 disabled={isCreating}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors"
@@ -356,6 +409,16 @@ const TestingPanel = ({ onBack }) => {
                 <Play size={16} />
                 {isCreating ? 'Creando...' : 'Crear Sala TEST'}
               </button>
+
+              {testStatus && (testStatus.phase === 'role_selection' || testStatus.phase === 'lobby') && (
+                <button
+                  onClick={startTestGame}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Play size={16} />
+                  Iniciar Partida en Vivo
+                </button>
+              )}
 
               <button
                 onClick={togglePolling}
@@ -511,23 +574,23 @@ const TestingPanel = ({ onBack }) => {
                   checked={customAutoStart}
                   onChange={(e) => setCustomAutoStart(e.target.checked)}
                 />
-                Iniciar juego automaticamente
+                Iniciar juego automáticamente (desmárcalo para conectar pestañas antes de empezar)
               </label>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Duracion de turno (segundos):
+                  Duración de turno (segundos):
                 </label>
                 <input
                   type="number"
-                  min={5}
+                  min={3}
                   max={30}
                   value={testTurnDuration}
                   onChange={(e) => setTestTurnDuration(Number(e.target.value))}
                   className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white"
                 />
                 <p className="text-slate-400 text-xs mt-1">
-                  Solo aplica al modo de prueba (recomendado 15s).
+                  Solo aplica al modo de prueba (recomendado 6-12s).
                 </p>
               </div>
 
@@ -579,19 +642,48 @@ const TestingPanel = ({ onBack }) => {
 
                 {/* Lista de Jugadores */}
                 <div>
-                  <h4 className="text-sm font-medium text-slate-300 mb-2">Jugadores:</h4>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                  <h4 className="text-sm font-medium text-slate-300 mb-2">Jugadores y enlaces en vivo:</h4>
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto">
                     {testStatus.players.map((player, index) => (
                       <div
                         key={index}
-                        className="bg-slate-700 rounded px-3 py-2 text-sm flex justify-between items-center"
+                        className="bg-slate-700 rounded px-3 py-2 text-sm flex justify-between items-center gap-2"
                       >
-                        <span className="text-white">
-                          {player.name} {player.is_host && '👑'}
-                        </span>
-                        <span className="text-slate-300 font-mono text-xs">
-                          {player.role}
-                        </span>
+                        <div className="min-w-0">
+                          <div className="text-white flex items-center gap-1.5 truncate">
+                            <span
+                              className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                player.has_live_tab ? 'bg-emerald-400' : 'bg-amber-400'
+                              }`}
+                              title={player.has_live_tab ? 'Pestaña conectada' : 'Esperando pestaña'}
+                            />
+                            <span className="truncate">{player.name}</span>
+                            {player.is_host && <span>👑</span>}
+                          </div>
+                          <span className="text-slate-300 font-mono text-xs">
+                            {ROLES[player.role]?.emoji || ''} {ROLES[player.role]?.name || player.role}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => openSingleTab(testStatus.room_code || 'TEST', player.name)}
+                            className="p-1.5 bg-slate-600 hover:bg-slate-500 rounded text-slate-100"
+                            title={`Abrir pestaña de ${player.name}`}
+                          >
+                            <ExternalLink size={13} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard?.writeText(getPlayerJoinUrl(testStatus.room_code || 'TEST', player.name));
+                              addLog(`Enlace de ${player.name} copiado`, 'info');
+                            }}
+                            className="p-1.5 bg-slate-600 hover:bg-slate-500 rounded text-slate-100"
+                            title={`Copiar enlace de ${player.name}`}
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

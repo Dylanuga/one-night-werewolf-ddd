@@ -7,6 +7,7 @@ const PUBLIC_STATE_KEYS = [
   'phase',
   'players',
   'player_count',
+  'selected_roles',
   'selected_roles_count',
   'current_turn_role',
   'votes',

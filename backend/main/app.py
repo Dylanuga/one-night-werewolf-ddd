@@ -386,6 +386,9 @@ def on_join_room(data):
                 private_state = game_service.get_private_state(room_code, player_id)
                 if private_state:
                     emit('private_update', private_state)
+
+                if game.phase.value in ('lobby', 'role_selection') and game.selected_roles:
+                    emit('roles_set', {'roles': game.selected_roles})
                 
                 if game.phase.value == 'night_phase':
                     current_turn = 'open_eyes' if getattr(game, 'open_eyes_active', False) else game.get_current_turn_role()
@@ -995,7 +998,8 @@ def test_status():
                     'id': player_id,
                     'role': player.get_role_name() if hasattr(player, 'get_role_name') else 'unknown',
                     'is_host': player.is_host,
-                    'is_connected': player.is_connected
+                    'is_connected': player.is_connected,
+                    'has_live_tab': bool(player.is_connected and not str(getattr(player, 'socket_id', '')).startswith('test_socket_'))
                 }
                 for player_id, player in (game.players.items() if game else [])
             ]
@@ -1060,11 +1064,52 @@ def advance_test_turn():
         print(f"Error en advance_test_turn: {e}")
         return {'error': str(e)}, 500
 
+@app.route('/test/start-game', methods=['POST'])
+@require_test_endpoints
+def start_test_game():
+    """Inicia manualmente la partida en la sala TEST cuando ya están conectadas las pestañas"""
+    try:
+        room_code = 'TEST'
+        if not game_service.room_exists(room_code):
+            return {'error': 'Sala TEST no existe'}, 404
+
+        game = room_repository.get_game(room_code)
+        if not game:
+            return {'error': 'No se pudo obtener la sala TEST'}, 500
+
+        host_player = next((p for p in game.players.values() if p.is_host), None)
+        if not host_player:
+            return {'error': 'No se encontró un host en la sala TEST'}, 400
+
+        if game.phase.value not in ('lobby', 'role_selection'):
+            return {'error': f'La partida ya está en fase {game.phase.value}'}, 400
+
+        success = game_service.start_game(room_code, host_player.player_id)
+        if not success:
+            return {'error': 'No se pudo iniciar la partida en la sala TEST'}, 400
+
+        return {
+            'message': 'Partida iniciada en sala TEST',
+            'phase': game.phase.value,
+            'current_turn_role': game.get_current_turn_role()
+        }, 200
+    except Exception as e:
+        print(f"Error en start_test_game: {e}")
+        return {'error': str(e)}, 500
+
 @app.route('/test/presets')
 @require_test_endpoints
 def test_presets():
     """Devuelve configuraciones predefinidas para testing"""
     presets = {
+        'hunter_vs_wolf': {
+            'name': 'Cazador vs Lobo (4J)',
+            'description': '1 cazador, 1 lobo, 1 vidente, 1 aldeano',
+            'role_distribution': {
+                'players': ['hunter', 'werewolf', 'seer', 'villager'],
+                'center': ['robber', 'mason', 'villager']
+            }
+        },
         'basic_werewolf': {
             'name': 'Lobo Básico',
             'description': '1 lobo, 2 masones, 3 aldeanos',

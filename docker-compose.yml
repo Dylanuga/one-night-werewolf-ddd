@@ -7,16 +7,16 @@ services:
       - "5000:5000"
     environment:
       - PYTHONUNBUFFERED=1
-      - FLASK_DEBUG=${FLASK_DEBUG:-true}
+      - FLASK_DEBUG=${FLASK_DEBUG:-false}
       - SECRET_KEY=${SECRET_KEY:-}
-      - ENABLE_TEST_ENDPOINTS=${ENABLE_TEST_ENDPOINTS:-true}
+      - ENABLE_TEST_ENDPOINTS=${ENABLE_TEST_ENDPOINTS:-false}
 
   frontend:
     build:
       context: ./frontend
       args:
         - VITE_SOCKET_URL=
-        - VITE_ENABLE_TESTING=${VITE_ENABLE_TESTING:-true}
+        - VITE_ENABLE_TESTING=${VITE_ENABLE_TESTING:-false}
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:

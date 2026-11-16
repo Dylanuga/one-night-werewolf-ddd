@@ -374,6 +374,8 @@ class GameLogic:
             return {"success": False, "message": "Jugador no encontrado"}
         if target_id not in self.players:
             return {"success": False, "message": "Objetivo inválido"}
+        if voter_id == target_id:
+            return {"success": False, "message": "No puedes votarte a ti mismo"}
 
         self.votes[voter_id] = target_id
         all_voted = all(v is not None for v in self.votes.values())
@@ -425,6 +427,7 @@ class GameLogic:
         # Fase 2: Efectos encadenados al morir (p. ej. Cazador / Hunter)
         eliminated_set: List[str] = list(initial_eliminated)
         chain_eliminated: List[str] = []
+        hunter_shots: List[Dict[str, Any]] = []
         queue: List[str] = list(initial_eliminated)
 
         while queue:
@@ -442,6 +445,14 @@ class GameLogic:
                         queue.append(extra_pid)
                         dead_name = self.players[dead_pid].name if dead_pid in self.players else dead_pid
                         extra_name = self.players[extra_pid].name if extra_pid in self.players else extra_pid
+                        target_role = self.final_roles.get(extra_pid)
+                        hunter_shots.append({
+                            "hunter_id": dead_pid,
+                            "hunter_name": dead_name,
+                            "target_id": extra_pid,
+                            "target_name": extra_name,
+                            "target_role": target_role
+                        })
                         self.add_log(f"🏹 {dead_name} (Cazador) cayó y disparó a {extra_name}.")
             except ValueError:
                 continue
@@ -452,12 +463,21 @@ class GameLogic:
         # Fase 3: Evaluación de victoria por equipos
         werewolves_in_final = [pid for pid, role in self.final_roles.items() if role == "werewolf"]
         eliminated_werewolves = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == "werewolf"]
+        direct_lynched_wolves = [pid for pid in initial_eliminated if self.final_roles.get(pid) == "werewolf"]
+        wolf_killed_by_hunter = [s for s in hunter_shots if s.get("target_role") == "werewolf"]
         eliminated_tanners = [pid for pid in self.eliminated_ids if self.final_roles.get(pid) == "tanner"]
         villager_team_pids = [pid for pid, r in self.final_roles.items() if r not in ("werewolf", "tanner")]
 
         if eliminated_tanners and eliminated_werewolves:
             team = "tanner"
-            message = "Ganan el Curtidor y los Aldeanos (murieron el Curtidor y un Hombre Lobo)."
+            if not direct_lynched_wolves and wolf_killed_by_hunter:
+                shot = wolf_killed_by_hunter[0]
+                message = (
+                    f"🏹 Ganan el Curtidor y los Aldeanos (el Cazador {shot['hunter_name']} "
+                    f"abatió al lobo {shot['target_name']} antes de morir)."
+                )
+            else:
+                message = "Ganan el Curtidor y los Aldeanos (murieron el Curtidor y un Hombre Lobo)."
             winning_player_ids = eliminated_tanners + villager_team_pids
         elif eliminated_tanners:
             team = "tanner"
@@ -465,7 +485,14 @@ class GameLogic:
             winning_player_ids = eliminated_tanners
         elif eliminated_werewolves:
             team = "villagers"
-            message = "Los aldeanos ganan (eliminaron a un hombre lobo)."
+            if not direct_lynched_wolves and wolf_killed_by_hunter:
+                shot = wolf_killed_by_hunter[0]
+                message = (
+                    f"🏹 El cazador ({shot['hunter_name']}) pudo dar con el lobo "
+                    f"({shot['target_name']}) antes de que lo linchen. ¡La aldea gana!"
+                )
+            else:
+                message = "Los aldeanos ganan (eliminaron a un hombre lobo)."
             winning_player_ids = villager_team_pids
         else:
             if len(werewolves_in_final) == 0:
@@ -482,6 +509,7 @@ class GameLogic:
             "message": message,
             "eliminated_ids": self.eliminated_ids,
             "chain_eliminated_ids": self.chain_eliminated_ids,
+            "hunter_shots": hunter_shots,
             "winning_player_ids": winning_player_ids
         }
 
@@ -530,6 +558,7 @@ class GameLogic:
             "original_roles": {pid: {"role": p.original_role, "name": p.name} for pid, p in self.players.items()},
             "eliminated_ids": self.eliminated_ids,
             "chain_eliminated_ids": self.chain_eliminated_ids,
+            "hunter_shots": self.winners.get("hunter_shots", []),
             "votes": self.votes,
             "winners": self.winners
         }
@@ -577,6 +606,7 @@ class GameLogic:
             "phase": self.phase.value,
             "players": [p.to_dict() for p in self.players.values()],
             "player_count": len(self.players),
+            "selected_roles": self.selected_roles if self.phase in (GamePhase.LOBBY, GamePhase.ROLE_SELECTION) else [],
             "selected_roles_count": len(self.selected_roles),
             "current_turn_role": effective_turn_role,
             "votes": self.votes if self.phase == GamePhase.VOTING else {},

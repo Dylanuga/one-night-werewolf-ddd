@@ -29,6 +29,13 @@ export const RoleSelector = ({ onBack }) => {
     if (storeSelectedRoles && Object.keys(storeSelectedRoles).length > 0) {
       return { ...storeSelectedRoles };
     }
+    if (gameState?.selected_roles && gameState.selected_roles.length > 0) {
+      const counts = {};
+      gameState.selected_roles.forEach(r => {
+        counts[r] = (counts[r] || 0) + 1;
+      });
+      return counts;
+    }
     return isHost ? { werewolf: 2 } : {};
   });
   const [isStarting, setIsStarting] = useState(false);

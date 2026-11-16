@@ -190,6 +190,8 @@ def test_polymorphic_roles_catalog_and_death_triggers():
     # Fase de votación: p2 y p3 votan al Cazador (p1), pero el Cazador (p1) vota al Lobo (p2)
     game.phase = GamePhase.DAY_PHASE
     assert game.start_voting_phase()
+    self_vote = game.submit_vote("p1", "p1")
+    assert self_vote["success"] is False, "No debe permitirse el autovoto"
     game.submit_vote("p2", "p1")
     game.submit_vote("p3", "p1")
     game.submit_vote("p1", "p2")  # Cazador apunta al Lobo
@@ -199,6 +201,10 @@ def test_polymorphic_roles_catalog_and_death_triggers():
     assert "p2" in game.eliminated_ids, "El Lobo debe morir por el disparo del Cazador"
     assert "p2" in game.chain_eliminated_ids
     assert game.winners["team"] == "villagers", "Los aldeanos ganan gracias al disparo del Cazador"
+    assert "pudo dar con el lobo" in game.winners["message"].lower()
+    reveal = game.get_reveal_data()
+    assert len(reveal.get("hunter_shots", [])) == 1
+    assert reveal["hunter_shots"][0]["target_id"] == "p2"
     print("   ✅ Motor de resolución con efectos al morir (Cazador) funciona perfectamente")
 
 

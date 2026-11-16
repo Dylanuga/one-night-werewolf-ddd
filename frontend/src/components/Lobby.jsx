@@ -347,10 +347,19 @@ export const Lobby = ({ onNext, showRoleSelection = false }) => {
             </h3>
             
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-green-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span>Suficientes jugadores. ¡Puedes iniciar el juego!</span>
-              </div>
+              {playerCount >= 3 ? (
+                <div className="flex items-center gap-2 text-green-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>Suficientes jugadores. ¡Puedes iniciar el juego!</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+                  <span>
+                    Esperando más jugadores (mínimo 3). {3 - playerCount === 1 ? 'Falta 1 jugador.' : `Faltan ${3 - playerCount} jugadores.`}
+                  </span>
+                </div>
+              )}
               
               <button
                 onClick={onNext}
@@ -362,7 +371,9 @@ export const Lobby = ({ onNext, showRoleSelection = false }) => {
               </button>
               
               <p className="text-sm text-slate-400 text-center">
-                {playerCount} jugadores - ¡Listo para comenzar!
+                {playerCount >= 3
+                  ? `${playerCount} jugadores - ¡Listo para comenzar!`
+                  : `${playerCount} / 3 jugadores mínimos para comenzar`}
               </p>
             </div>
           </div>
@@ -400,7 +411,9 @@ export const Lobby = ({ onNext, showRoleSelection = false }) => {
               </div>
               
               <p className="text-sm text-slate-500 text-center">
-                {playerCount} jugadores conectados - ¡Listos para jugar!
+                {playerCount >= 3
+                  ? `${playerCount} jugadores conectados - ¡Listos para jugar!`
+                  : `${playerCount} / 3 jugadores conectados (esperando mínimo 3)...`}
               </p>
             </div>
           </div>
