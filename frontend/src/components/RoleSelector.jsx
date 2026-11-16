@@ -59,10 +59,8 @@ export const RoleSelector = ({ onBack }) => {
       setSelectedRoles(roleCount);
     };
 
-    // Escuchar eventos de roles_set desde el gameStore (que los recibe del socket)
-    // Por ahora usamos una implementación temporal hasta que se agregue al useSocket
+    // Los eventos de roles_set se manejan en useGameSocket.js y se sincronizan vía gameStore
     if (!isHost && isConnected) {
-      // El evento ya se maneja en useSocket.js - los roles se sincronizan automáticamente
       console.log('👥 No-host: escuchando cambios de roles...');
     }
 
