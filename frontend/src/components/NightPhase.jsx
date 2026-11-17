@@ -1,5 +1,5 @@
 // src/components/NightPhase.jsx - VERSIÓN OPTIMIZADA
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Eye } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { ROLES, TURN_DURATION } from '../utils/constants';
@@ -15,6 +15,50 @@ import {
   GenericPhase, 
   ActionResult 
 } from './night-phases';
+
+const INTRO_DURATION_MS = 1200;
+const CLOSING_STAGE_MAX_MS = 550;
+const MIN_ACTION_TIME_SEC = 3.5;
+
+const calculateIntroWindowMs = (currentTurn) => {
+  if (!currentTurn?.role || currentTurn.role === 'open_eyes') {
+    return 0;
+  }
+
+  const duration =
+    typeof currentTurn.duration === 'number' && currentTurn.duration > 0
+      ? currentTurn.duration
+      : TURN_DURATION;
+
+  let serverRemainingSec = duration;
+  if (typeof currentTurn.end_timestamp === 'number' && typeof currentTurn.server_time === 'number') {
+    serverRemainingSec = Math.max(0, currentTurn.end_timestamp - currentTurn.server_time);
+  } else if (typeof currentTurn.remaining === 'number') {
+    serverRemainingSec = Math.max(0, currentTurn.remaining);
+  } else if (typeof currentTurn.timestamp === 'number' && typeof currentTurn.server_time === 'number') {
+    const serverElapsed = Math.max(0, currentTurn.server_time - currentTurn.timestamp);
+    serverRemainingSec = Math.max(0, duration - serverElapsed);
+  } else if (typeof currentTurn.timestamp === 'number') {
+    const clientElapsed = Math.max(0, (Date.now() - currentTurn.timestamp * 1000) / 1000);
+    serverRemainingSec = Math.max(0, Math.min(duration, duration - clientElapsed));
+  }
+
+  let serverElapsedSec = 0;
+  if (typeof currentTurn.server_time === 'number' && typeof currentTurn.timestamp === 'number') {
+    serverElapsedSec = Math.max(0, currentTurn.server_time - currentTurn.timestamp);
+  } else if (typeof currentTurn.end_timestamp === 'number' && typeof currentTurn.server_time === 'number') {
+    serverElapsedSec = Math.max(0, duration - serverRemainingSec);
+  } else if (typeof currentTurn.remaining === 'number') {
+    serverElapsedSec = Math.max(0, duration - currentTurn.remaining);
+  } else if (typeof currentTurn.timestamp === 'number') {
+    serverElapsedSec = Math.max(0, (Date.now() - currentTurn.timestamp * 1000) / 1000);
+  }
+
+  const remainingIntroMs = Math.max(0, INTRO_DURATION_MS - serverElapsedSec * 1000);
+  const maxAllowedIntroMs = Math.max(0, (serverRemainingSec - MIN_ACTION_TIME_SEC) * 1000);
+
+  return Math.round(Math.max(0, Math.min(remainingIntroMs, maxAllowedIntroMs)));
+};
 
 export const NightPhase = React.memo(() => {
   const {
@@ -66,6 +110,168 @@ export const NightPhase = React.memo(() => {
     privateState?.server_time
   ]);
 
+  const turnKey = currentTurnDisplay?.role
+    ? `${currentTurnDisplay.role}_${currentTurnDisplay.timestamp ?? ''}`
+    : null;
+
+  const latestTurnDisplayRef = useRef(currentTurnDisplay);
+  latestTurnDisplayRef.current = currentTurnDisplay;
+
+  const activeTurnRef = useRef({ key: null, role: null, timestamp: null });
+  const timersRef = useRef({ closing: null, ready: null });
+
+  const clearIntroTimers = useCallback(() => {
+    if (timersRef.current.closing) {
+      clearTimeout(timersRef.current.closing);
+      timersRef.current.closing = null;
+    }
+    if (timersRef.current.ready) {
+      clearTimeout(timersRef.current.ready);
+      timersRef.current.ready = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => clearIntroTimers();
+  }, [clearIntroTimers]);
+
+  const [introState, setIntroState] = useState(() => {
+    const initialMs = calculateIntroWindowMs(currentTurnDisplay);
+    const initialStage =
+      initialMs > 650 ? 'closing' : initialMs > 0 ? 'waking' : 'ready';
+    return {
+      turnKey: null,
+      role: null,
+      stage: initialStage,
+      totalMs: initialMs,
+      previousRole: null
+    };
+  });
+
+  useEffect(() => {
+    const turn = latestTurnDisplayRef.current;
+
+    if (!turnKey || !turn?.role) {
+      clearIntroTimers();
+      activeTurnRef.current = { key: null, role: null, timestamp: null };
+      setIntroState({
+        turnKey: null,
+        role: null,
+        stage: 'ready',
+        totalMs: 0,
+        previousRole: null
+      });
+      return;
+    }
+
+    const prev = activeTurnRef.current;
+    if (prev.key === turnKey) {
+      return;
+    }
+
+    // Si llega el timestamp oficial del servidor para el mismo rol iniciado milisegundos antes,
+    // actualizamos la clave sin reiniciar la transición ni alterar previousRole.
+    if (prev.role === turn.role && prev.timestamp == null && turn.timestamp != null) {
+      activeTurnRef.current = {
+        key: turnKey,
+        role: turn.role,
+        timestamp: turn.timestamp
+      };
+      setIntroState(current => ({
+        ...current,
+        turnKey
+      }));
+      return;
+    }
+
+    clearIntroTimers();
+
+    const prevRole = prev.role && prev.role !== turn.role ? prev.role : null;
+    activeTurnRef.current = {
+      key: turnKey,
+      role: turn.role,
+      timestamp: turn.timestamp ?? null
+    };
+
+    const introMs = calculateIntroWindowMs(turn);
+    if (introMs <= 0) {
+      setIntroState({
+        turnKey,
+        role: turn.role,
+        stage: 'ready',
+        totalMs: 0,
+        previousRole: prevRole
+      });
+      return;
+    }
+
+    const startStage = introMs > 650 ? 'closing' : 'waking';
+    setIntroState({
+      turnKey,
+      role: turn.role,
+      stage: startStage,
+      totalMs: introMs,
+      previousRole: prevRole
+    });
+
+    if (startStage === 'closing') {
+      const closingMs = Math.min(CLOSING_STAGE_MAX_MS, Math.round(introMs * 0.46));
+      timersRef.current.closing = setTimeout(() => {
+        timersRef.current.closing = null;
+        setIntroState(current =>
+          current.role === turn.role && current.turnKey === activeTurnRef.current.key
+            ? { ...current, stage: 'waking' }
+            : current
+        );
+      }, closingMs);
+    }
+
+    timersRef.current.ready = setTimeout(() => {
+      timersRef.current.ready = null;
+      setIntroState(current =>
+        current.role === turn.role && current.turnKey === activeTurnRef.current.key
+          ? { ...current, stage: 'ready' }
+          : current
+      );
+    }, introMs);
+  }, [turnKey, clearIntroTimers]);
+
+  const isOpenEyes = currentTurnRole === 'open_eyes';
+  const isNewPendingTurn =
+    Boolean(turnKey) &&
+    !isOpenEyes &&
+    introState.turnKey !== turnKey &&
+    !(
+      introState.turnKey === `${currentTurnRole}_` &&
+      currentTurnDisplay?.timestamp != null
+    );
+  const pendingIntroMs = isNewPendingTurn
+    ? calculateIntroWindowMs(currentTurnDisplay)
+    : 0;
+  const effectiveIntroStage = isNewPendingTurn
+    ? pendingIntroMs > 650
+      ? 'closing'
+      : pendingIntroMs > 0
+        ? 'waking'
+        : 'ready'
+    : introState.stage;
+  const effectiveIntroTotalMs = isNewPendingTurn
+    ? pendingIntroMs
+    : introState.totalMs;
+  const effectivePreviousRole = isNewPendingTurn
+    ? introState.role && introState.role !== currentTurnRole
+      ? introState.role
+      : null
+    : introState.previousRole;
+  const isInteractionLocked = !isOpenEyes && effectiveIntroStage !== 'ready';
+
+  const handleLockedInteractionCapture = useCallback((event) => {
+    if (isInteractionLocked) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, [isInteractionLocked]);
+
   // ✅ OPTIMIZACIÓN: Un solo efecto simplificado para debugging
   useEffect(() => {
     console.log('🌙 NightPhase - Estado actualizado (NUEVA ARQUITECTURA):', {
@@ -83,21 +289,24 @@ export const NightPhase = React.memo(() => {
   const renderCurrentPhaseInfo = () => {
     if (!currentTurnRole) {
       return (
-        <div className="bg-slate-800 rounded-lg p-6 text-center">
+        <div className="bg-slate-800 rounded-lg p-6 text-center night-turn-transition">
           <p className="text-slate-400">Preparando fase nocturna...</p>
         </div>
       );
     }
 
-    const isOpenEyes = currentTurnRole === 'open_eyes';
     const roleInfo = ROLES[currentTurnRole];
+    const prevRoleInfo = effectivePreviousRole ? ROLES[effectivePreviousRole] : null;
 
     return (
-      <div className={`rounded-lg p-6 border ${
-        isCurrentUserTurn 
-          ? 'bg-yellow-900/30 border-yellow-500' 
-          : 'bg-slate-800 border-slate-600'
-      }`}>
+      <div
+        key={currentTurnRole}
+        className={`night-turn-transition rounded-lg p-6 border ${
+          isCurrentUserTurn 
+            ? 'bg-yellow-900/30 border-yellow-500 shadow-lg shadow-yellow-900/20' 
+            : 'bg-slate-800 border-slate-600'
+        }`}
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-3xl">{isOpenEyes ? '👀' : (roleInfo?.emoji || '❓')}</span>
@@ -117,67 +326,132 @@ export const NightPhase = React.memo(() => {
           <p className="text-slate-300 mb-4">{roleInfo.description}</p>
         )}
 
-        {/* Renderizar componente específico según el rol */}
-        {!isOpenEyes && currentTurnRole === 'werewolf' && (
-          <WerewolfPhase 
-            isMyTurn={isCurrentUserTurn} 
-            nightActionData={nightActionData} 
-            actionResult={actionResult} 
-          />
-        )}
-        
-        {!isOpenEyes && currentTurnRole === 'mason' && (
-          <MasonPhase 
-            isMyTurn={isCurrentUserTurn} 
-            nightActionData={nightActionData} 
-          />
+        {/* Transición narrativa de respiro antes de habilitar botones interactivos */}
+        {!isOpenEyes && (
+          <div
+            aria-live="polite"
+            className={`transition-all duration-[420ms] ease-out overflow-hidden ${
+              isInteractionLocked
+                ? 'opacity-100 max-h-52 mb-4 translate-y-0'
+                : 'opacity-0 max-h-0 mb-0 -translate-y-2 pointer-events-none'
+            }`}
+          >
+            <div className="bg-slate-900/75 border border-indigo-500/40 rounded-lg p-5 text-center">
+              <div key={effectiveIntroStage} className="night-turn-transition night-narrative-pulse">
+                {effectiveIntroStage === 'closing' ? (
+                  <>
+                    <p className="text-lg font-semibold text-indigo-200">
+                      😌 Cierra los ojos...
+                    </p>
+                    <p className="text-sm text-slate-400 mt-1">
+                      {prevRoleInfo
+                        ? `Termina el turno de ${prevRoleInfo.name}.`
+                        : 'La aldea descansa en silencio.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-amber-200">
+                      ✨ Despierta el siguiente rol...
+                    </p>
+                    <p className="text-sm text-slate-300 mt-1">
+                      {isCurrentUserTurn
+                        ? `${roleInfo?.emoji || '🌙'} ¡Es tu turno (${roleInfo?.name || currentTurnRole})! Preparando tus opciones...`
+                        : `${roleInfo?.emoji || '🌙'} Turno de ${roleInfo?.name || currentTurnRole}`}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {effectiveIntroTotalMs > 0 && (
+                <div className="w-full max-w-xs mx-auto h-1.5 bg-slate-700/70 rounded-full overflow-hidden mt-3">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-400 via-purple-400 to-yellow-400 rounded-full"
+                    style={{
+                      animation: `nightIntroProgress ${effectiveIntroTotalMs}ms linear forwards`
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
-        {!isOpenEyes && currentTurnRole === 'seer' && (
-          <SeerPhase
-            isMyTurn={isCurrentUserTurn}
-            nightActionData={nightActionData}
-            actionResult={actionResult}
-          />
-        )}
+        {/* Contenedor interactivo del rol: permanece montado pero bloqueado durante el respiro */}
+        <div
+          inert={isInteractionLocked ? '' : undefined}
+          aria-hidden={isInteractionLocked}
+          onClickCapture={handleLockedInteractionCapture}
+          className={
+            isInteractionLocked
+              ? 'pointer-events-none select-none opacity-0 translate-y-2 max-h-0 overflow-hidden'
+              : `opacity-100 translate-y-0 max-h-[1200px] pointer-events-auto transition-all duration-500 ease-out${
+                  !isOpenEyes ? ' night-controls-reveal' : ''
+                }`
+          }
+        >
+          {/* Renderizar componente específico según el rol */}
+          {!isOpenEyes && currentTurnRole === 'werewolf' && (
+            <WerewolfPhase 
+              isMyTurn={isCurrentUserTurn} 
+              nightActionData={nightActionData} 
+              actionResult={actionResult} 
+            />
+          )}
+          
+          {!isOpenEyes && currentTurnRole === 'mason' && (
+            <MasonPhase 
+              isMyTurn={isCurrentUserTurn} 
+              nightActionData={nightActionData} 
+            />
+          )}
 
-        {!isOpenEyes && currentTurnRole === 'robber' && (
-          <RobberPhase
-            isMyTurn={isCurrentUserTurn}
-            nightActionData={nightActionData}
-            actionResult={actionResult}
-          />
-        )}
+          {!isOpenEyes && currentTurnRole === 'seer' && (
+            <SeerPhase
+              isMyTurn={isCurrentUserTurn}
+              nightActionData={nightActionData}
+              actionResult={actionResult}
+            />
+          )}
 
-        {!isOpenEyes && currentTurnRole === 'troublemaker' && (
-          <TroublemakerPhase
-            isMyTurn={isCurrentUserTurn}
-            nightActionData={nightActionData}
-            actionResult={actionResult}
-          />
-        )}
+          {!isOpenEyes && currentTurnRole === 'robber' && (
+            <RobberPhase
+              isMyTurn={isCurrentUserTurn}
+              nightActionData={nightActionData}
+              actionResult={actionResult}
+            />
+          )}
 
-        {!isOpenEyes && currentTurnRole === 'drunk' && (
-          <DrunkPhase
-            isMyTurn={isCurrentUserTurn}
-            nightActionData={nightActionData}
-            actionResult={actionResult}
-          />
-        )}
+          {!isOpenEyes && currentTurnRole === 'troublemaker' && (
+            <TroublemakerPhase
+              isMyTurn={isCurrentUserTurn}
+              nightActionData={nightActionData}
+              actionResult={actionResult}
+            />
+          )}
 
-        {!isOpenEyes && currentTurnRole === 'insomniac' && (
-          <InsomniacPhase
-            isMyTurn={isCurrentUserTurn}
-            nightActionData={nightActionData}
-          />
-        )}
-        
-        {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && currentTurnRole !== 'insomniac' && (
-          <GenericPhase 
-            currentTurnRole={currentTurnRole} 
-            isMyTurn={isCurrentUserTurn} 
-          />
-        )}
+          {!isOpenEyes && currentTurnRole === 'drunk' && (
+            <DrunkPhase
+              isMyTurn={isCurrentUserTurn}
+              nightActionData={nightActionData}
+              actionResult={actionResult}
+            />
+          )}
+
+          {!isOpenEyes && currentTurnRole === 'insomniac' && (
+            <InsomniacPhase
+              isMyTurn={isCurrentUserTurn}
+              nightActionData={nightActionData}
+            />
+          )}
+          
+          {!isOpenEyes && currentTurnRole && currentTurnRole !== 'werewolf' && currentTurnRole !== 'mason' && currentTurnRole !== 'seer' && currentTurnRole !== 'robber' && currentTurnRole !== 'troublemaker' && currentTurnRole !== 'drunk' && currentTurnRole !== 'insomniac' && (
+            <GenericPhase 
+              currentTurnRole={currentTurnRole} 
+              isMyTurn={isCurrentUserTurn} 
+            />
+          )}
+        </div>
 
         {/* Mostrar resultado de acción cuando ya cambió el turno (ej. acción aleatoria al acabar el tiempo) */}
         {!isCurrentUserTurn && actionResult && (
